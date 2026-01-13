@@ -28,6 +28,9 @@ namespace NeeView
 
         [AliasName("Archiver.Playlist")]
         PlaylistArchive,
+
+        [AliasName("Archiver.Epub")]
+        EpubArchive,
     }
 
     public static class ArchiveTypeExtensions
@@ -37,7 +40,7 @@ namespace NeeView
         {
             return self switch
             {
-                ArchiveType.PdfArchive or ArchiveType.MediaArchive => false,
+                ArchiveType.PdfArchive or ArchiveType.MediaArchive or ArchiveType.EpubArchive => false,
                 _ => true,
             };
         }

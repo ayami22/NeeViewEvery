@@ -31,7 +31,10 @@ namespace NeeView
             [ArchiveType.PdfArchive] = Config.Current.Archive.Pdf.SupportFileTypes,
             [ArchiveType.MediaArchive] = Config.Current.Archive.Media.SupportFileTypes,
             [ArchiveType.SusieArchive] = SusiePluginManager.Current.ArchiveExtensions,
+            [ArchiveType.MediaArchive] = Config.Current.Archive.Media.SupportFileTypes,
+            [ArchiveType.SusieArchive] = SusiePluginManager.Current.ArchiveExtensions,
             [ArchiveType.PlaylistArchive] = new FileTypeCollection(PlaylistArchive.Extension),
+            [ArchiveType.EpubArchive] = Config.Current.Archive.Epub.SupportFileTypes,
         };
 
         // アーカイバの適用順
@@ -57,6 +60,10 @@ namespace NeeView
                 (s, e) => _cache.Clear()));
             _disposables.Add(Config.Current.Archive.Media.SubscribePropertyChanged(
                 (s, e) => _cache.Clear()));
+            _disposables.Add(Config.Current.Archive.Media.SubscribePropertyChanged(
+                (s, e) => _cache.Clear()));
+            _disposables.Add(Config.Current.Archive.Epub.SubscribePropertyChanged(
+                (s, e) => _cache.Clear()));
             _disposables.Add(Config.Current.Susie.SubscribePropertyChanged(
                 (s, e) => _cache.Clear()));
 
@@ -67,6 +74,12 @@ namespace NeeView
             _disposables.Add(Config.Current.Archive.Pdf.SubscribePropertyChanged(nameof(PdfArchiveConfig.IsEnabled),
                 (s, e) => UpdateOrderList()));
             _disposables.Add(Config.Current.Archive.Media.SubscribePropertyChanged(nameof(MediaArchiveConfig.IsEnabled),
+                (s, e) => UpdateOrderList()));
+            _disposables.Add(Config.Current.Susie.SubscribePropertyChanged(nameof(SusieConfig.IsEnabled),
+                (s, e) => UpdateOrderList()));
+            _disposables.Add(Config.Current.Archive.Media.SubscribePropertyChanged(nameof(MediaArchiveConfig.IsEnabled),
+                (s, e) => UpdateOrderList()));
+            _disposables.Add(Config.Current.Archive.Epub.SubscribePropertyChanged(nameof(EpubArchiveConfig.IsEnabled),
                 (s, e) => UpdateOrderList()));
             _disposables.Add(Config.Current.Susie.SubscribePropertyChanged(nameof(SusieConfig.IsEnabled),
                 (s, e) => UpdateOrderList()));
@@ -157,6 +170,11 @@ namespace NeeView
                 order.Add(ArchiveType.MediaArchive);
             }
 
+            if (Config.Current.Archive.Epub.IsEnabled)
+            {
+                order.Add(ArchiveType.EpubArchive);
+            }
+
             if (Config.Current.Susie.IsEnabled)
             {
                 if (Config.Current.Susie.IsFirstOrderSusieArchive)
@@ -201,6 +219,14 @@ namespace NeeView
             if (Config.Current.Archive.Media.IsEnabled && includeMedia)
             {
                 foreach (var ext in _supportedFileTypes[ArchiveType.MediaArchive].Items)
+                {
+                    yield return ext;
+                }
+            }
+
+            if (Config.Current.Archive.Epub.IsEnabled)
+            {
+                foreach (var ext in _supportedFileTypes[ArchiveType.EpubArchive].Items)
                 {
                     yield return ext;
                 }
@@ -391,6 +417,9 @@ namespace NeeView
                 case ArchiveType.PlaylistArchive:
                     archive = new PlaylistArchive(path, source, archiveHint);
                     break;
+                case ArchiveType.EpubArchive:
+                    archive = new EpubArchive(path, source, archiveHint);
+                    break;
                 default:
                     ////throw new ArgumentException("Not support archive type.");
                     string extension = LoosePath.GetExtension(path);
@@ -533,6 +562,7 @@ namespace NeeView
                 MediaArchive => ArchiveType.MediaArchive,
                 SusieArchive => ArchiveType.SusieArchive,
                 PlaylistArchive => ArchiveType.PlaylistArchive,
+                EpubArchive => ArchiveType.EpubArchive,
                 _ => ArchiveType.None,
             };
         }

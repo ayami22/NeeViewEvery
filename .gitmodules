@@ -10,3 +10,6 @@
 [submodule "AnimatedImage"]
 	path = AnimatedImage
 	url = https://github.com/neelabo/AnimatedImage.git
+[submodule "EpubReader"]
+	path = EpubReader
+	url = https://github.com/vers-one/EpubReader

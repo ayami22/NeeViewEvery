@@ -110,6 +110,7 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </ProjectReference>
     <ProjectReference Include="..\Vlc.DotNet\src\Vlc.DotNet.Wpf\Vlc.DotNet.Wpf.csproj" />
+    <ProjectReference Include="..\EpubReader\Source\VersOne.Epub\VersOne.Epub.csproj" />
   </ItemGroup>
 
   <ItemGroup>
