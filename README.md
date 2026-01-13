@@ -12,6 +12,7 @@ Powerful customization is available.
 
 - Supported image format (bmp, jpg, gif, tiff, png, ico, WIC images)
 - Compressed file support (zip, rar, 7z, lzh, cbr, cbz, cb7, ...)
+- EPUB support (image-based EPUB / comic-style EPUB)
 - Recursive compressed file support
 - PDF support
 - Video play support
