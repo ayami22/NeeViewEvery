@@ -1,5 +1,4 @@
 using NeeView.Drawing;
-using NeeView.Properties;
 using VersOne.Epub;
 using System;
 using System.Collections.Generic;
@@ -13,14 +12,16 @@ using System.Threading.Tasks;
 namespace NeeView
 {
     /// <summary>
-    /// EPUB Archive
-    /// - Comic EPUB only (image-based)
-    /// - Text EPUB is explicitly rejected
-    /// - ZIP fallback is image-only
+    /// Lazy-loading, memory-efficient EPUB archive.
+    /// Handles comic EPUBs (image-based) and ZIP fallback.
+    /// Streams individual images on demand to avoid memory spikes.
     /// </summary>
-    public class EpubArchive : Archive
+    public class EpubArchive : Archive, IDisposable
     {
-        private bool _zipMode;
+        private EpubBookRef? _bookRef;
+        private readonly SemaphoreSlim _bookLock = new(1, 1);
+        private readonly SemaphoreSlim _zipLock = new(1, 1);
+        private HashSet<string>? _zipEntries;
 
         public EpubArchive(string path, ArchiveEntry? source, ArchiveHint archiveHint)
             : base(path, source, archiveHint)
@@ -28,61 +29,44 @@ namespace NeeView
         }
 
         public override string ToString() => "Epub";
-
         public override bool IsSupported() => true;
 
         // ============================================================
         // Entry enumeration
         // ============================================================
-        protected override async ValueTask<List<ArchiveEntry>> GetEntriesInnerAsync(
-            bool decrypt, CancellationToken token)
+        protected override async ValueTask<List<ArchiveEntry>> GetEntriesInnerAsync(bool decrypt, CancellationToken token)
         {
             try
             {
-                _zipMode = false;
-                return await GetEntriesByVersOneAsync(token);
+                return await GetEntriesByEpubAsync(token);
             }
             catch (NotSupportedException)
             {
-                // 明确拒绝文字 EPUB（不 fallback）
                 throw;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"EpubArchive: VersOne failed → ZIP fallback\n{ex.Message}");
-                _zipMode = true;
+                Debug.WriteLine($"EpubArchive: VersOne lazy-load failed, fallback ZIP\n{ex}");
                 return await GetEntriesByZipAsync(token);
             }
         }
 
         // ============================================================
-        // VersOne path (Comic EPUB only)
+        // EPUB (lazy-loaded)
         // ============================================================
-        private async ValueTask<List<ArchiveEntry>> GetEntriesByVersOneAsync(
-            CancellationToken token)
+        private async ValueTask<List<ArchiveEntry>> GetEntriesByEpubAsync(CancellationToken token)
         {
-            using var stream = new FileStream(
-                Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var bookRef = await LoadBookRefAsync(token);
 
-            var book = await EpubReader.ReadBookAsync(stream);
-
-            if (!IsComicEpub(book))
-            {
-                Debug.WriteLine("EpubArchive: Text-based EPUB detected. Reject.");
-                throw new NotSupportedException("Text-based EPUB is not supported.");
-            }
+            // 取图片列表，不管是漫画型还是文本型
+            var images = bookRef.Content?.Images?.Local;
+            if (images == null || images.Count == 0)
+                return new List<ArchiveEntry>(); // 没有图片，返回空列表
 
             var list = new List<ArchiveEntry>();
-            var imageFiles = book.Content?.Images?.Local;
-
-            if (imageFiles == null || imageFiles.Count == 0)
-            {
-                throw new NotSupportedException("No images found in EPUB.");
-            }
-
             int id = 0;
-            foreach (var img in imageFiles
-                .OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
+
+            foreach (var img in images.OrderBy(i => i.Key, StringComparer.OrdinalIgnoreCase))
             {
                 token.ThrowIfCancellationRequested();
 
@@ -91,104 +75,128 @@ namespace NeeView
                     IsValid = true,
                     Id = id++,
                     RawEntryName = img.Key,
-                    Length = img.Content?.Length ?? 0,
+                    Length = 0, // 流式加载
                     CreationTime = CreationTime,
-                    LastWriteTime = LastWriteTime,
+                    LastWriteTime = LastWriteTime
                 });
             }
 
-            Debug.WriteLine($"EpubArchive(VersOne): {list.Count} images loaded.");
             return list;
         }
 
-        // ============================================================
-        // ZIP fallback (image-only)
-        // ============================================================
-        private async ValueTask<List<ArchiveEntry>> GetEntriesByZipAsync(
-            CancellationToken token)
+
+        private async Task<EpubBookRef> LoadBookRefAsync(CancellationToken token)
         {
-            var list = new List<ArchiveEntry>();
+            if (_bookRef != null)
+                return _bookRef;
 
-            using var zip = ZipFile.OpenRead(Path);
-
-            var images = zip.Entries
-                .Where(e => IsImageFile(e.FullName))
-                .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (images.Count == 0)
+            await _bookLock.WaitAsync(token);
+            try
             {
-                throw new NotSupportedException("No images found in EPUB.");
-            }
-
-            int id = 0;
-            foreach (var e in images)
-            {
-                token.ThrowIfCancellationRequested();
-
-                list.Add(new ArchiveEntry(this)
+                if (_bookRef == null)
                 {
-                    IsValid = true,
-                    Id = id++,
-                    RawEntryName = e.FullName,
-                    Length = e.Length,
-                    CreationTime = CreationTime,
-                    LastWriteTime = LastWriteTime,
-                });
+                    var fs = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    _bookRef = await EpubReader.OpenBookAsync(fs); // lazy load
+                }
+                return _bookRef;
             }
+            finally
+            {
+                _bookLock.Release();
+            }
+        }
 
-            Debug.WriteLine($"EpubArchive(ZIP): {list.Count} images loaded.");
-            return list;
+        private static bool IsComicEpub(EpubBookRef bookRef)
+        {
+            int imageCount = bookRef.Content?.Images?.Local?.Count ?? 0;
+            int htmlCount = bookRef.Content?.Html?.Local?.Count ?? 0;
+            return imageCount >= 5 && imageCount > htmlCount * 2;
+        }
+
+        // ============================================================
+        // ZIP fallback
+        // ============================================================
+        private async ValueTask<List<ArchiveEntry>> GetEntriesByZipAsync(CancellationToken token)
+        {
+            await _zipLock.WaitAsync(token);
+            try
+            {
+                if (_zipEntries != null && _zipEntries.Count > 0)
+                    return _zipEntries.Select((name, index) => new ArchiveEntry(this)
+                    {
+                        Id = index,
+                        RawEntryName = name,
+                        IsValid = true,
+                        Length = 0,
+                        CreationTime = CreationTime,
+                        LastWriteTime = LastWriteTime
+                    }).ToList();
+
+                using var zip = ZipFile.OpenRead(Path);
+                _zipEntries = new HashSet<string>(zip.Entries
+                    .Where(e => IsImageFile(e.FullName))
+                    .Select(e => e.FullName));
+
+                int id = 0;
+                var list = new List<ArchiveEntry>();
+                foreach (var name in _zipEntries.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+                {
+                    token.ThrowIfCancellationRequested();
+                    list.Add(new ArchiveEntry(this)
+                    {
+                        Id = id++,
+                        RawEntryName = name,
+                        IsValid = true,
+                        Length = 0,
+                        CreationTime = CreationTime,
+                        LastWriteTime = LastWriteTime
+                    });
+                }
+                return list;
+            }
+            finally
+            {
+                _zipLock.Release();
+            }
         }
 
         // ============================================================
         // Open image stream
         // ============================================================
-        protected override async ValueTask<Stream> OpenStreamInnerAsync(
-            ArchiveEntry entry, bool decrypt, CancellationToken token)
+        protected override async ValueTask<Stream> OpenStreamInnerAsync(ArchiveEntry entry, bool decrypt, CancellationToken token)
         {
-            if (_zipMode)
+            // ZIP entry
+            if (_zipEntries != null && _zipEntries.Contains(entry.RawEntryName))
             {
-                using var zip = ZipFile.OpenRead(Path);
-                var zipEntry = zip.GetEntry(entry.RawEntryName)
-                    ?? throw new FileNotFoundException(entry.RawEntryName);
+                await _zipLock.WaitAsync(token);
+                try
+                {
+                    using var zip = ZipFile.OpenRead(Path);
+                    var zipEntry = zip.GetEntry(entry.RawEntryName)
+                        ?? throw new FileNotFoundException(entry.RawEntryName);
 
-                var ms = new MemoryStream();
-                using var s = zipEntry.Open();
-                await s.CopyToAsync(ms, token);
-                ms.Position = 0;
-                return ms;
+                    var ms = new MemoryStream();
+                    using var s = zipEntry.Open();
+                    await s.CopyToAsync(ms, token);
+                    ms.Position = 0;
+                    return ms;
+                }
+                finally
+                {
+                    _zipLock.Release();
+                }
             }
 
-            using var stream = new FileStream(
-                Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            // EPUB lazy stream
+            var bookRef = await LoadBookRefAsync(token);
+            var fileRef = bookRef.Content?.Images?.Local?
+                .FirstOrDefault(f => string.Equals(f.Key, entry.RawEntryName, StringComparison.OrdinalIgnoreCase));
 
-            var book = await EpubReader.OpenBookAsync(stream);
-
-            var file = book.Content?.Images?.Local?
-                .FirstOrDefault(f =>
-                    string.Equals(f.Key, entry.RawEntryName,
-                        StringComparison.OrdinalIgnoreCase));
-
-            if (file == null)
+            if (fileRef == null)
                 throw new FileNotFoundException(entry.RawEntryName);
 
-            var bytes = await file.ReadContentAsBytesAsync();
-            return new MemoryStream(bytes);
-        }
-
-        // ============================================================
-        // Helpers
-        // ============================================================
-        private static bool IsComicEpub(EpubBook book)
-        {
-            int imageCount = book.Content?.Images?.Local?.Count ?? 0;
-            int htmlCount = book.Content?.Html?.Local?.Count ?? 0;
-
-            // 经验规则：
-            // - 漫画 EPUB：image >> html
-            // - 小说 EPUB：html >= image
-            return imageCount >= 5 && imageCount > htmlCount * 2;
+            // Stream content on demand without allocating full byte[]
+            return await fileRef.GetContentStreamAsync();
         }
 
         private static bool IsImageFile(string name)
@@ -200,15 +208,24 @@ namespace NeeView
                 || name.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
         }
 
-        // ============================================================
-        // Extract (not supported)
-        // ============================================================
-        protected override ValueTask ExtractToFileInnerAsync(
-            ArchiveEntry entry, string exportFileName,
-            bool isOverwrite, CancellationToken token)
+        protected override ValueTask ExtractToFileInnerAsync(ArchiveEntry entry, string exportFileName, bool isOverwrite, CancellationToken token)
         {
-            throw new NotSupportedException(
-                "Use stream extraction for EPUB images.");
+            throw new NotSupportedException("Use stream extraction for EPUB images.");
+        }
+
+        // ============================================================
+        // Proper disposal to close underlying file streams
+        // ============================================================
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _bookRef?.Dispose();
+                _bookRef = null;
+                _bookLock.Dispose();
+                _zipLock.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }
