@@ -13,7 +13,10 @@ using System.Threading.Tasks;
 namespace NeeView
 {
     /// <summary>
-    /// EPUB Archive (VersOne + ZIP Fallback)
+    /// EPUB Archive
+    /// - Comic EPUB only (image-based)
+    /// - Text EPUB is explicitly rejected
+    /// - ZIP fallback is image-only
     /// </summary>
     public class EpubArchive : Archive
     {
@@ -39,6 +42,11 @@ namespace NeeView
                 _zipMode = false;
                 return await GetEntriesByVersOneAsync(token);
             }
+            catch (NotSupportedException)
+            {
+                // 明确拒绝文字 EPUB（不 fallback）
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"EpubArchive: VersOne failed → ZIP fallback\n{ex.Message}");
@@ -48,47 +56,45 @@ namespace NeeView
         }
 
         // ============================================================
-        // VersOne path (strict EPUB)
+        // VersOne path (Comic EPUB only)
         // ============================================================
         private async ValueTask<List<ArchiveEntry>> GetEntriesByVersOneAsync(
             CancellationToken token)
         {
-            var list = new List<ArchiveEntry>();
-
             using var stream = new FileStream(
                 Path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
             var book = await EpubReader.ReadBookAsync(stream);
 
-            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            if (book.Content?.AllFiles?.Local != null)
+            if (!IsComicEpub(book))
             {
-                foreach (var f in book.Content.AllFiles.Local)
-                {
-                    keys.Add(f.Key);
-                }
+                Debug.WriteLine("EpubArchive: Text-based EPUB detected. Reject.");
+                throw new NotSupportedException("Text-based EPUB is not supported.");
+            }
+
+            var list = new List<ArchiveEntry>();
+            var imageFiles = book.Content?.Images?.Local;
+
+            if (imageFiles == null || imageFiles.Count == 0)
+            {
+                throw new NotSupportedException("No images found in EPUB.");
             }
 
             int id = 0;
-            foreach (var key in keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+            foreach (var img in imageFiles
+                .OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
             {
                 token.ThrowIfCancellationRequested();
 
-                var entry = new ArchiveEntry(this)
+                list.Add(new ArchiveEntry(this)
                 {
                     IsValid = true,
-                    Id = id,
-                    RawEntryName = key,
+                    Id = id++,
+                    RawEntryName = img.Key,
+                    Length = img.Content?.Length ?? 0,
                     CreationTime = CreationTime,
                     LastWriteTime = LastWriteTime,
-                };
-
-                if (entry.IsImage(true))
-                {
-                    list.Add(entry);
-                    id++;
-                }
+                });
             }
 
             Debug.WriteLine($"EpubArchive(VersOne): {list.Count} images loaded.");
@@ -96,7 +102,7 @@ namespace NeeView
         }
 
         // ============================================================
-        // ZIP fallback path (漫画 EPUB)
+        // ZIP fallback (image-only)
         // ============================================================
         private async ValueTask<List<ArchiveEntry>> GetEntriesByZipAsync(
             CancellationToken token)
@@ -106,14 +112,14 @@ namespace NeeView
             using var zip = ZipFile.OpenRead(Path);
 
             var images = zip.Entries
-                .Where(e =>
-                    e.FullName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                    e.FullName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                    e.FullName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
-                    e.FullName.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase) ||
-                    e.FullName.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                .Where(e => IsImageFile(e.FullName))
                 .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            if (images.Count == 0)
+            {
+                throw new NotSupportedException("No images found in EPUB.");
+            }
 
             int id = 0;
             foreach (var e in images)
@@ -144,9 +150,8 @@ namespace NeeView
             if (_zipMode)
             {
                 using var zip = ZipFile.OpenRead(Path);
-                var zipEntry = zip.GetEntry(entry.RawEntryName);
-                if (zipEntry == null)
-                    throw new FileNotFoundException(entry.RawEntryName);
+                var zipEntry = zip.GetEntry(entry.RawEntryName)
+                    ?? throw new FileNotFoundException(entry.RawEntryName);
 
                 var ms = new MemoryStream();
                 using var s = zipEntry.Open();
@@ -160,7 +165,7 @@ namespace NeeView
 
             var book = await EpubReader.OpenBookAsync(stream);
 
-            var file = book.Content?.AllFiles?.Local?
+            var file = book.Content?.Images?.Local?
                 .FirstOrDefault(f =>
                     string.Equals(f.Key, entry.RawEntryName,
                         StringComparison.OrdinalIgnoreCase));
@@ -173,7 +178,30 @@ namespace NeeView
         }
 
         // ============================================================
-        // Extract (not optimized)
+        // Helpers
+        // ============================================================
+        private static bool IsComicEpub(EpubBook book)
+        {
+            int imageCount = book.Content?.Images?.Local?.Count ?? 0;
+            int htmlCount = book.Content?.Html?.Local?.Count ?? 0;
+
+            // 经验规则：
+            // - 漫画 EPUB：image >> html
+            // - 小说 EPUB：html >= image
+            return imageCount >= 5 && imageCount > htmlCount * 2;
+        }
+
+        private static bool IsImageFile(string name)
+        {
+            return name.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ============================================================
+        // Extract (not supported)
         // ============================================================
         protected override ValueTask ExtractToFileInnerAsync(
             ArchiveEntry entry, string exportFileName,
