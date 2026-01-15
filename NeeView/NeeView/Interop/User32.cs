@@ -80,6 +80,19 @@ namespace NeeView.Interop
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+        internal const int SW_HIDE = 0;
+        internal const int SW_SHOWNORMAL = 1;
+        internal const int SW_SHOWMINIMIZED = 2;
+        internal const int SW_SHOWMAXIMIZED = 3;
+        internal const int SW_SHOWNOACTIVATE = 4;
+        internal const int SW_SHOW = 5;
+        internal const int SW_MINIMIZE = 6;
+        internal const int SW_SHOWMINNOACTIVE = 7;
+        internal const int SW_SHOWNA = 8;
+        internal const int SW_RESTORE = 9;
+        internal const int SW_SHOWDEFAULT = 10;
+        internal const int SW_FORCEMINIMIZE = 11;
+
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
@@ -122,6 +135,11 @@ namespace NeeView.Interop
         public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_SHOWWINDOW = 0x0040;
+
+        public const int HWND_TOP = 0;
+        public const int HWND_BOTTOM = 1;
+        public const int HWND_TOPMOST = -1;
+        public const int HWND_NOTOPMOST = -2;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
         internal static extern int GetDoubleClickTime();
