@@ -1,12 +1,14 @@
-﻿using System;
+﻿//#define LOCAL_DEBUG
+
+using NeeLaboratory.Generators;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NeeView
 {
-    public class BookMementoCollection
+    [LocalDebug]
+    public partial class BookMementoCollection
     {
         static BookMementoCollection() => Current = new BookMementoCollection();
         public static BookMementoCollection Current { get; }
@@ -52,14 +54,17 @@ namespace NeeView
             return Items.TryGetValue(place, out BookMementoUnit? memento) ? memento : null;
         }
 
-
         public void Clear()
         {
             Items.Clear();
         }
 
-
-        internal void Rename(string src, string dst)
+        /// <summary>
+        /// 名前変更
+        /// </summary>
+        /// <param name="src"></param>
+        /// <param name="dst"></param>
+        public void Rename(string src, string dst)
         {
             if (src == null || dst == null) return;
             if (src == dst) return;
@@ -67,6 +72,8 @@ namespace NeeView
             var unit = Get(src);
             if (unit != null)
             {
+                LocalDebug.WriteLine($"Rename: {src} => {dst}");
+
                 Items.Remove(src);
                 Items.Remove(dst);
                 unit.Memento.Path = dst;
@@ -77,6 +84,39 @@ namespace NeeView
             }
         }
 
+        /// <summary>
+        /// 影響するパスすべてを名前変更する
+        /// </summary>
+        /// <param name="src"></param>
+        /// <param name="dst"></param>
+        public void RenameRecursive(string src, string dst)
+        {
+            var items = CollectPathMembers(Items.Values, src);
+            LocalDebug.WriteLine($"RenameItems.Count = {items.Count}");
+
+            foreach (var item in items)
+            {
+                var srcPath = item.Path;
+                var dstPath = dst + srcPath[src.Length..];
+                Rename(srcPath, dstPath);
+            }
+        }
+
+        /// <summary>
+        /// 指定パスに影響する項目を収集する
+        /// </summary>
+        /// <param name="src"></param>
+        /// <returns></returns>
+        private static List<BookMementoUnit> CollectPathMembers(IEnumerable<BookMementoUnit> items, string src)
+        {
+            return items.Where(e => Contains(e.Path, src)).ToList();
+
+            static bool Contains(string src, string target)
+            {
+                return src.StartsWith(target, StringComparison.OrdinalIgnoreCase)
+                    && (src.Length == target.Length || src[target.Length] == LoosePath.DefaultSeparator);
+            }
+        }
         
         public BookMementoUnit? GetValid(string place)
         {

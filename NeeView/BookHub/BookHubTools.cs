@@ -132,7 +132,9 @@ namespace NeeView
             // 履歴を新しい名前に変更
             if (oldPath != null)
             {
-                BookMementoCollection.Current.Rename(oldPath, path);
+                BookMementoCollection.Current.RenameRecursive(oldPath, path);
+                QuickAccessCollection.Current.RenameRecursive(oldPath, path);
+                PlaylistHub.Current.RenameItemPathRecursive(oldPath, path);
             }
 
             // 本を開く

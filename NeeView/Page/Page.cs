@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
-using NeeLaboratory.ComponentModel;
 using NeeLaboratory.Generators;
 using NeeLaboratory.IO.Search;
 
@@ -410,11 +409,18 @@ namespace NeeView
         {
             if (_disposedValue) return false;
 
+            var oldPath = EntryFullName;
             var isSuccess = await ArchiveEntry.RenameAsync(name);
             if (isSuccess)
             {
                 RaiseNamePropertyChanged();
                 FileInformation.Current.Update(); // TODO: 伝達方法がよろしくない
+
+                // 名前変更をブックマーク等に反映
+                var newPath = EntryFullName;
+                BookMementoCollection.Current.RenameRecursive(oldPath, newPath);
+                QuickAccessCollection.Current.RenameRecursive(oldPath, newPath);
+                PlaylistHub.Current.RenameItemPathRecursive(oldPath, newPath);
             }
             return isSuccess;
         }
