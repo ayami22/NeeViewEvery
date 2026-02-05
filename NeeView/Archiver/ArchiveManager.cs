@@ -99,7 +99,7 @@ namespace NeeView
             get
             {
                 if (_isDirtyOrderList)
-                {
+                
                     _orderList = CreateOrderList();
                     _isDirtyOrderList = false;
                 }
