@@ -1,5 +1,4 @@
 ﻿using NeeLaboratory.ComponentModel;
-using System.ComponentModel;
 
 namespace NeeView
 {
@@ -12,7 +11,7 @@ namespace NeeView
         public PdfArchiveConfig Pdf { get; set; } = new PdfArchiveConfig();
 
         public EpubArchiveConfig Epub { get; set; } = new EpubArchiveConfig();
-      
+        
         public MediaArchiveConfig Media { get; set; } = new MediaArchiveConfig();
     }
 }

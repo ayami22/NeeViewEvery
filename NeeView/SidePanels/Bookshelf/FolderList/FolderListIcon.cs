@@ -1,18 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace NeeView
 {
@@ -41,6 +32,16 @@ namespace NeeView
 
         public static readonly DependencyProperty IsKeepAreaProperty =
             DependencyProperty.Register("IsKeepArea", typeof(bool), typeof(FolderListIcon), new PropertyMetadata(false));
+
+
+        public ImageSource? UnlinkedIcon
+        {
+            get { return (ImageSource)GetValue(UnlinkedIconProperty); }
+            set { SetValue(UnlinkedIconProperty, value); }
+        }
+
+        public static readonly DependencyProperty UnlinkedIconProperty =
+            DependencyProperty.Register("UnlinkedIcon", typeof(ImageSource), typeof(FolderListIcon), new PropertyMetadata(null));
 
 
         public ImageSource? FolderIcon

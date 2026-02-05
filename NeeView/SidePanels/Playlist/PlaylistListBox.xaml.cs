@@ -2,26 +2,19 @@
 using NeeView.Collections.Generic;
 using NeeView.Properties;
 using NeeView.Windows;
-using NeeView.Windows.Media;
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace NeeView
 {
@@ -402,7 +395,7 @@ namespace NeeView
                 return queries.Any();
             }
 
-            var files = e.Data.GetFileDrop();
+            var files = e.Data.GetNormalizedFileDrop();
             if (files is not null)
             {
                 e.Effects = DragDropEffects.Copy;
@@ -435,7 +428,7 @@ namespace NeeView
                 return await CreatePlaylistItems(paths, token);
             }
 
-            var files = e.Data.GetFileDrop();
+            var files = e.Data.GetNormalizedFileDrop();
             if (files is not null)
             {
                 return await CreatePlaylistItems(files, token);
@@ -533,7 +526,7 @@ namespace NeeView
             }
         }
 
-#endregion DragDrop
+        #endregion DragDrop
 
         private void PlaylistListBox_Loaded(object? sender, RoutedEventArgs e)
         {
@@ -843,9 +836,9 @@ namespace NeeView
 
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is PlaylistItem item)
+            if (value is ArchiveType archiveType)
             {
-                return item.ArchiveType switch
+                return archiveType switch
                 {
                     ArchiveType.None => null,
                     ArchiveType.FolderArchive => FolderImageSource,

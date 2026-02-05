@@ -1,12 +1,6 @@
 ﻿using NeeLaboratory.ComponentModel;
-using NeeView.Collections;
 using NeeView.Collections.Generic;
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.Serialization;
 
 namespace NeeView
 {
@@ -64,6 +58,7 @@ namespace NeeView
             private set { _unit = value; }
         }
 
+        public bool IsUnlinked { get; set; }
 
         private string? CreateRawName(string? s)
         {

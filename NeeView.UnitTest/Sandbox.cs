@@ -1,10 +1,12 @@
-﻿using NeeLaboratory;
+﻿using Microsoft.VisualStudio.TestPlatform.Utilities;
+using NeeLaboratory;
 using NeeView.ComponentModel;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -260,7 +262,7 @@ namespace NeeView.UnitTest
             Assert.Equal(expected, result);
         }
 
-      
+
         [Theory]
         [InlineData(@"file:C:\Hoge\test.txt", @"C:\Hoge\test.txt")]
         [InlineData(@"file:\C:\Hoge\test.txt\", @"C:\Hoge\test.txt")]
@@ -285,6 +287,24 @@ namespace NeeView.UnitTest
             Assert.Equal(path, actual.SimplePath);
         }
 
+
+        [Theory]
+        [InlineData(@"\\Server\Share", @"\\Server\Share")]
+        [InlineData(@"\\server\share\", @"\\Server\Share")]
+        [InlineData(@"file:\\SERVER\share\", @"\\Server\Share")]
+        [InlineData(@"\\server\SHARE\File.txt", @"\\Server\Share\File.txt")]
+        public void QueryUncPathTest(string source, string path)
+        {
+            var query = new QueryPath(QueryScheme.File, path).Normalize();
+            var actual = new QueryPath(source).Normalize();
+
+            Assert.Equal(query, actual);
+            Assert.Equal(path, actual.Path);
+            Assert.Equal(@"file:" + path, actual.FullPath);
+            Assert.Equal(path, actual.SimplePath);
+        }
+
+
         [Theory]
         [InlineData(@"bookmark:folder\item1")]
         [InlineData(@"bookmark:\folder\item1\")]
@@ -300,6 +320,69 @@ namespace NeeView.UnitTest
             Assert.Equal(path, actual.Path);
             Assert.Equal(@"bookmark:folder\item1", actual.FullPath);
             Assert.Equal(@"bookmark:folder\item1", actual.SimplePath);
+        }
+
+        
+        [Theory]
+        [InlineData(@"E:\aaa\bbb", @"E:\aaa\B",
+            """"
+            {"Place":"E:\\aaa\\B","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"E:\aaa", @"E:\A",
+            """"
+            {"Place":"E:\\A\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"E:\aaa\bbb\ccc1.zip", @"E:\aaa\bbb\cx.zip",
+            """"
+            {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"cx.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"E:\aaa\bbb\ccc1.zip\001.jpg", @"E:\aaa\bbb\ccc1.zip\000X.png",
+            """"
+            {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"000X.png","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"E:\aaa\bbb\ccc2.zip\ddd", @"E:\aaa\bbb\ccc2.zip\eee",
+            """"
+            {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"eee\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"C:\path\to", @"C:\path\from",
+            """"
+            {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\from\\sample\\003.jpg"}}
+            """")]
+        [InlineData(@"E:\aaa\bbb\ccc2.zip", @"E:\aaa\bx\cx\dxx.zip",
+            """"
+            {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            """")]
+        public void FolderConfigRenameTest(string src, string dst, string expected)
+        {
+            var folder = CreateSampleFolderConfig();
+
+            _output.WriteLine($"src: {src}");
+            _output.WriteLine($"dst: {dst}");
+
+            // {"Place":"E:\\aaa\\bbb","Parameter":null,"Thumbs":{"ccc1.zip":"001.jpg","ccc2.zip":"ddd\\002.jpg","ccc3.zip":"C:\\path\\to\\sample\\003.jpg"}}
+            var json = JsonSerializer.Serialize(folder);
+            _output.WriteLine(json);
+
+            folder.RenameRecursive(src, dst);
+            var actual = JsonSerializer.Serialize(folder);
+            _output.WriteLine(expected);
+            _output.WriteLine(actual);
+
+            Assert.Equal(expected, actual);
+        }
+
+        private FolderConfig CreateSampleFolderConfig()
+        {
+            var folder = new FolderConfig(@"E:\aaa\bbb")
+            {
+                Thumbs = new Dictionary<string, string>
+                {
+                    ["ccc1.zip"] = @"001.jpg",
+                    ["ccc2.zip"] = @"ddd\002.jpg",
+                    ["ccc3.zip"] = @"C:\path\to\sample\003.jpg",
+                }
+            };
+            return folder;
         }
     }
 }

@@ -12,6 +12,7 @@ namespace NeeView
         private bool _isVisibleBookmarkMark = true;
         private string? _excludePattern;
         private bool _isSyncFolderTree;
+        private bool _isSyncFolderTreeAuto;
         private bool _isCloseBookWhenMove;
         private bool _isOpenNextBookWhenRemove = true;
         private bool _isInsertItem = true;
@@ -26,6 +27,10 @@ namespace NeeView
 
         [JsonInclude, JsonPropertyName(nameof(Home))]
         public string? _home;
+
+        [JsonInclude, JsonPropertyName(nameof(FolderConfigFilePath))]
+        public string? _folderConfigFilePath;
+
 
         /// <summary>
         /// ホームのパス
@@ -59,13 +64,23 @@ namespace NeeView
         }
 
         /// <summary>
-        /// フォルダーツリーと連動する
+        /// 同期ボタンでフォルダーツリーと同期する
         /// </summary>
         [PropertyMember]
         public bool IsSyncFolderTree
         {
             get { return _isSyncFolderTree; }
             set { SetProperty(ref _isSyncFolderTree, value); }
+        }
+
+        /// <summary>
+        /// フォルダーツリーと自動同期する
+        /// </summary>
+        [PropertyMember]
+        public bool IsSyncFolderTreeAuto
+        {
+            get { return _isSyncFolderTreeAuto; }
+            set { SetProperty(ref _isSyncFolderTreeAuto, value); }
         }
 
         /// <summary>
@@ -187,6 +202,18 @@ namespace NeeView
             get { return _isVisibleSearchBox; }
             set { SetProperty(ref _isVisibleSearchBox, value); }
         }
+
+        /// <summary>
+        /// フォルダー設定の保存場所
+        /// </summary>
+        [JsonIgnore]
+        [PropertyPath(FileDialogType = FileDialogType.SaveFile, Filter = "JSON|*.json")]
+        public string FolderConfigFilePath
+        {
+            get { return _folderConfigFilePath ?? SaveDataProfile.DefaultFolderConfigFilePath; }
+            set { SetProperty(ref _folderConfigFilePath, (string.IsNullOrWhiteSpace(value) || value.Trim() == SaveDataProfile.DefaultFolderConfigFilePath) ? null : value.Trim()); }
+        }
+
 
         #region Obsolete
 

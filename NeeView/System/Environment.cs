@@ -1,23 +1,16 @@
-﻿#define LOCAL_DEBUG
+﻿//#define LOCAL_DEBUG
 
 using NeeLaboratory.Generators;
 using NeeLaboratory.Text;
 using NeeView.Properties;
-using PdfiumViewer;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Net;
 using System.Reflection;
 using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Xml.Linq;
 
 namespace NeeView
 {
@@ -651,7 +644,7 @@ namespace NeeView
             if (result.Command == UICommands.Delete)
             {
                 // キャッシュDBを閉じる
-                ThumbnailCache.Current.Close();
+                Database.DisposeIfExists();
 
                 try
                 {

@@ -1,28 +1,16 @@
 ﻿using NeeLaboratory.Windows.Input;
-using NeeView.Collections;
 using NeeView.Collections.Generic;
 using NeeView.Properties;
 using NeeView.Windows;
-using NeeView.Windows.Media;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Markup;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace NeeView
 {
@@ -32,7 +20,6 @@ namespace NeeView
     public partial class FolderTreeView : UserControl, INavigateControl
     {
         private readonly FolderTreeViewModel _vm;
-        private CancellationTokenSource _removeUnlinkedCommandCancellationTokenSource = new();
         private readonly SimpleTextSearch _textSearch = new();
         private readonly FolderTreeViewDropAssist _dropAssist;
 
@@ -43,7 +30,6 @@ namespace NeeView
         private RelayCommand? _openExplorerCommand;
         private RelayCommand? _newFolderCommand;
         private RelayCommand? _renameCommand;
-        private RelayCommand? _removeUnlinkedCommand;
         private RelayCommand? _addBookmarkCommand;
 
 
@@ -252,22 +238,6 @@ namespace NeeView
             }
         }
 
-        public RelayCommand RemoveUnlinkedCommand
-        {
-            get { return _removeUnlinkedCommand = _removeUnlinkedCommand ?? new RelayCommand(RemoveUnlinkedCommand_Executed); }
-        }
-
-        private async void RemoveUnlinkedCommand_Executed()
-        {
-            // 直前の命令はキャンセル
-            _removeUnlinkedCommandCancellationTokenSource?.Cancel();
-            _removeUnlinkedCommandCancellationTokenSource = new CancellationTokenSource();
-            if (this.TreeView.SelectedItem is RootBookmarkFolderNode)
-            {
-                await BookmarkCollection.Current.RemoveUnlinkedAsync(_removeUnlinkedCommandCancellationTokenSource.Token);
-            }
-        }
-
         public RelayCommand AddBookmarkCommand
         {
             get
@@ -284,7 +254,7 @@ namespace NeeView
             }
         }
 
-        #endregion
+#endregion
 
 
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
@@ -510,8 +480,6 @@ namespace NeeView
                 case RootBookmarkFolderNode:
                     contextMenu.Items.Add(CreateMenuItem(TextResources.GetString("FolderTree.Menu.AddBookmark"), AddBookmarkCommand));
                     contextMenu.Items.Add(CreateMenuItem(TextResources.GetString("FolderTree.Menu.NewFolder"), NewFolderCommand));
-                    contextMenu.Items.Add(new Separator());
-                    contextMenu.Items.Add(CreateMenuItem(TextResources.GetString("FolderTree.Menu.DeleteInvalidBookmark"), RemoveUnlinkedCommand));
                     break;
 
                 case BookmarkFolderNode:
@@ -646,7 +614,7 @@ namespace NeeView
                             DropToQuickAccess(sender, e, isDrop, quickAccessTarget, target.Delta, e.Data.GetQueryPathCollection());
                             if (e.Handled) return;
 
-                            DropToQuickAccess(sender, e, isDrop, quickAccessTarget, target.Delta, e.Data.GetFileDrop());
+                            DropToQuickAccess(sender, e, isDrop, quickAccessTarget, target.Delta, e.Data.GetNormalizedFileDrop());
                             if (e.Handled) return;
                         }
                         break;
@@ -659,7 +627,7 @@ namespace NeeView
                             DropToBookmark(sender, e, isDrop, bookmarkFolderTarget, e.Data.GetQueryPathCollection());
                             if (e.Handled) return;
 
-                            DropToBookmark(sender, e, isDrop, bookmarkFolderTarget, e.Data.GetFileDrop());
+                            DropToBookmark(sender, e, isDrop, bookmarkFolderTarget, e.Data.GetNormalizedFileDrop());
                             if (e.Handled) return;
                         }
                         break;

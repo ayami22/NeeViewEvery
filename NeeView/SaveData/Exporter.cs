@@ -19,6 +19,10 @@ namespace NeeView
                 {
                     archive.CreateEntryFromFile(SaveData.UserSettingFilePath, SaveDataProfile.UserSettingFileName);
 
+                    if (File.Exists(SaveData.FolderConfigFilePath))
+                    {
+                        archive.CreateEntryFromFile(SaveData.FolderConfigFilePath, SaveDataProfile.FolderConfigFileName);
+                    }
                     if (File.Exists(SaveData.HistoryFilePath))
                     {
                         archive.CreateEntryFromFile(SaveData.HistoryFilePath, SaveDataProfile.HistoryFileName);

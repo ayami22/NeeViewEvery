@@ -5,10 +5,6 @@ using NeeLaboratory.IO.Search;
 using NeeView.Properties;
 using NeeView.Setting;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -224,17 +220,8 @@ namespace NeeView
         }
 
         // 起動時処理
-        public void Loaded()
+        public async ValueTask LoadedAsync()
         {
-            // NOTE: 必要であればエクスプローラーメニューを更新
-            // NOTE: 都度追従させるほどではないので、無効化して様子を見る
-#if false
-            if (App.Current.Option.Language is null)
-            {
-                ExplorerContextMenu.Current.Update();
-            }
-#endif
-
             // サイドパネル復元
             CustomLayoutPanelManager.Current.Restore();
 
@@ -242,14 +229,23 @@ namespace NeeView
             // TODO: 非同期化できないか？
             SusiePluginManager.Current.Initialize();
 
+            // フォルダー設定読み込み
+            SaveData.Current.LoadFolderConfig();
+
             // 履歴読み込み
             SaveData.Current.LoadHistory();
 
             // ブックマーク読み込み
             SaveData.Current.LoadBookmark();
 
+            // プレイリスト読み込み
+            PlaylistHub.Current.Initialize();
+
             // SaveDataSync活動開始
             SaveDataSync.Current.Initialize();
+
+            // 非同期初期化処理を待機
+            await ProcessJobEngine.Current.WaitPropertyAsync(nameof(ProcessJobEngine.IsBusy), x => x.IsBusy == false);
 
             // 最初のブック、フォルダを開く
             new FirstLoader().Load();
@@ -269,25 +265,22 @@ namespace NeeView
                 SlideShow.Current.Play();
             }
 
-            AppDispatcher.BeginInvoke(async () =>
+            // パネル初期化待機
+            await BookmarkFolderList.Current.WaitAsync(CancellationToken.None);
+            await BookshelfFolderList.Current.WaitAsync(CancellationToken.None);
+
+            // 起動時スクリプトの実行
+            if (App.Current.Option.ScriptQuery is not null)
             {
-                // パネル初期化待機
-                await BookmarkFolderList.Current.WaitAsync(CancellationToken.None);
-                await BookshelfFolderList.Current.WaitAsync(CancellationToken.None);
-
-                // 起動時スクリプトの実行
-                if (App.Current.Option.ScriptQuery is not null)
+                var path = App.Current.Option.ScriptQuery.ResolvePath().SimplePath;
+                if (!string.IsNullOrEmpty(path))
                 {
-                    var path = App.Current.Option.ScriptQuery.ResolvePath().SimplePath;
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        ScriptManager.Current.Execute(this, path, null, null);
-                    }
+                    ScriptManager.Current.Execute(this, path, null, null);
                 }
+            }
 
-                // Script: OnStartup
-                CommandTable.Current.TryExecute(this, ScriptCommand.EventOnStartup, null, CommandOption.None);
-            });
+            // Script: OnStartup
+            CommandTable.Current.TryExecute(this, ScriptCommand.EventOnStartup, null, CommandOption.None);
 
 #if DEBUG
             // [開発用] デバッグアクションの実行

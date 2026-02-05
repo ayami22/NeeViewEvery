@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace NeeView
 {
-    public class PlaylistSourceItem
+    public record class PlaylistSourceItem
     {
         [JsonInclude, JsonPropertyName(nameof(Name))]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -33,6 +33,8 @@ namespace NeeView
             get { return _name ?? LoosePath.GetFileName(Path); }
             set { _name = (string.IsNullOrEmpty(value) || value.Trim() == LoosePath.GetFileName(Path)) ? null : value.Trim(); }
         }
+
+        public string? RawName => _name;
 
         public bool IsNameChanged => _name != null;
     }

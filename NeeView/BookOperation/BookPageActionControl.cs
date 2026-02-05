@@ -1,16 +1,15 @@
 ﻿//#define LOCAL_DEBUG
 
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using NeeLaboratory.ComponentModel;
+using NeeLaboratory.Linq;
+using NeeView.PageFrames;
+using NeeView.Properties;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
-using NeeView.PageFrames;
-using NeeLaboratory.Linq;
-using System.Diagnostics;
-using NeeLaboratory.ComponentModel;
-using System.IO;
-using NeeView.Properties;
+using System.Threading.Tasks;
 
 namespace NeeView
 {
@@ -120,10 +119,12 @@ namespace NeeView
         // 指定ページのファイルを削除する
         public async ValueTask DeleteFileAsync(List<Page> pages)
         {
-            var isCompletely = pages.Any(e => !e.ArchiveEntry.IsFileSystem);
-            if (Config.Current.System.IsRemoveConfirmed || isCompletely)
+            var entryType = ArchiveEntryUtility.GetDeleteEntryType(pages.Select(e => e.ArchiveEntry));
+            if (entryType.IsVarious()) return;
+
+            if (Config.Current.System.IsRemoveConfirmed || entryType.IsIrreversible())
             {
-                var dialog = await PageFileIO.CreateDeleteConfirmDialog(pages, isCompletely);
+                var dialog = await PageFileIO.CreateDeleteConfirmDialog(pages, entryType);
                 if (!dialog.ShowDialog().IsPossible)
                 {
                     return;

@@ -1,13 +1,11 @@
-﻿using NeeView;
-using NeeView.IO;
+﻿using NeeLaboratory.Linq;
+using NeeView;
 using NeeView.Properties;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Json;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -47,7 +45,7 @@ namespace NeeView
         {
             token.ThrowIfCancellationRequested();
 
-            var playlist = PlaylistSourceTools.Load(Path);
+            var playlist = PlaylistSourceTools.LoadFileResolved(Path);
             var list = new List<ArchiveEntry>();
 
             foreach (var item in playlist.Items)
@@ -103,7 +101,6 @@ namespace NeeView
             return entry;
         }
 
-
         // ストリームを開く
         protected override async ValueTask<Stream> OpenStreamInnerAsync(ArchiveEntry entry, bool decrypt, CancellationToken token)
         {
@@ -118,6 +115,70 @@ namespace NeeView
             Debug.Assert(entry.Archive == this);
             if (entry is not PlaylistArchiveEntry e) throw new InvalidCastException();
             await e.InnerEntry.ExtractToFileAsync(exportFileName, isOverwrite, token);
+        }
+
+        /// <summary>
+        /// can delete
+        /// </summary>
+        /// <exception cref="ArgumentException">Not registered with this archiver.</exception>
+        public override bool CanDelete(List<ArchiveEntry> entries, bool strict)
+        {
+            if (entries.Any(e => e.Archive != this)) throw new ArgumentException("There are elements not registered with this archiver.", nameof(entries));
+            if (!IsFileSystem) return false;
+
+            return entries.All(e => e is PlaylistArchiveEntry);
+        }
+
+        /// <summary>
+        /// delete entries
+        /// </summary>
+        /// <exception cref="ArgumentException">Not registered with this archiver.</exception>
+        public override async ValueTask<DeleteResult> DeleteAsync(List<ArchiveEntry> entries)
+        {
+            if (entries.Any(e => e.Archive != this)) throw new ArgumentException("There are elements not registered with this archiver.", nameof(entries));
+
+            var paths = entries.Select(e => e.EntityPath).WhereNotNull().ToList();
+            if (!paths.Any()) return DeleteResult.Success;
+
+            RemoveCachedEntry(entries);
+            PlaylistTools.Delete(Path, entries.OfType<PlaylistArchiveEntry>().Select(e => CreateSourceItem(e)).ToList());
+
+            return DeleteResult.Success;
+        }
+
+        /// <summary>
+        /// can rename?
+        /// </summary>
+        public override bool CanRename(ArchiveEntry entry)
+        {
+            if (entry.Archive != this) throw new ArgumentException("There are elements not registered with this archiver.", nameof(entry));
+            if (!IsFileSystem) return false;
+
+            return entry is PlaylistArchiveEntry;
+        }
+
+        /// <summary>
+        /// rename
+        /// </summary>
+        public override async ValueTask<bool> RenameAsync(ArchiveEntry entry, string name)
+        {
+            if (entry.Archive != this) throw new ArgumentException("There are elements not registered with this archiver.", nameof(entry));
+            if (!IsFileSystem) return false;
+            if (entry is not PlaylistArchiveEntry) return false;
+
+            var newName = PlaylistTools.Rename(Path, CreateSourceItem(entry), name);
+            if (newName is not null)
+            {
+                entry.RawEntryName = newName;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static PlaylistSourceItem CreateSourceItem(ArchiveEntry entry)
+        {
+            return new PlaylistSourceItem(entry.SystemPath, entry.EntryName);
         }
     }
 }

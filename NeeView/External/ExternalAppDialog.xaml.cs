@@ -1,19 +1,9 @@
 ﻿using NeeView.Windows;
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace NeeView
 {
@@ -31,7 +21,7 @@ namespace NeeView
             _vm = new ExternalAppDialogViewModel();
             _vm.Owner = this;
             this.DataContext = _vm;
-            
+
             DragDropHelper.AttachDragOverTerminator(this);
 
             this.Closed += ExternalAppDialog_Closed;
@@ -66,7 +56,7 @@ namespace NeeView
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop, true))
             {
-                e.Effects = e.Data.GetFileDrop().Any(x => File.Exists(x)) ? DragDropEffects.Copy : DragDropEffects.None;
+                e.Effects = e.Data.GetNormalizedFileDrop().Any(x => File.Exists(x)) ? DragDropEffects.Copy : DragDropEffects.None;
                 e.Handled = true;
             }
         }
@@ -75,7 +65,7 @@ namespace NeeView
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop, true))
             {
-                foreach (var path in e.Data.GetFileDrop().Where(x => File.Exists(x)))
+                foreach (var path in e.Data.GetNormalizedFileDrop().Where(x => File.Exists(x)))
                 {
                     _vm.Add(path);
                 }

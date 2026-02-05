@@ -1,7 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Threading;
 
 namespace NeeView
 {
@@ -25,7 +22,7 @@ namespace NeeView
 
 
     /// <summary>
-    /// ページコンテンツ作成用 JobCateogry
+    /// ページコンテンツ作成用 JobCategory
     /// </summary>
     public class PageContentJobCategory : JobCategory
     {

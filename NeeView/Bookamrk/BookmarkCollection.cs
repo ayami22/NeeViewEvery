@@ -1,15 +1,12 @@
 ﻿using NeeLaboratory.ComponentModel;
 using NeeLaboratory.Generators;
 using NeeLaboratory.Linq;
-using NeeView.Collections;
 using NeeView.Collections.Generic;
 using NeeView.Properties;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -34,6 +31,9 @@ namespace NeeView
 
         [Subscribable]
         public event EventHandler<BookmarkCollectionChangedEventArgs>? BookmarkChanged;
+
+        [Subscribable]
+        public event EventHandler? Validated;
 
 
         public TreeListNode<IBookmarkEntry> Items
@@ -220,42 +220,72 @@ namespace NeeView
             }
         }
 
-        // 無効な履歴削除
-        public async ValueTask RemoveUnlinkedAsync(CancellationToken token)
+        /// <summary>
+        /// ブックマークの修復
+        /// </summary>
+        /// <remarks>
+        /// リンク切れのブックマークの修復を試み、それでも失敗する場合はリンク切れフラグをつける
+        /// </remarks>
+        /// <param name="progress"></param>
+        /// <param name="token"></param>
+        /// <returns>リンク切れ項目数</returns>
+        public async ValueTask<int> ResolveUnlinkedAsync(IProgress<ProgressContext>? progress, CancellationToken token)
         {
-            // 削除項目収集
             List<TreeListNode<IBookmarkEntry>> nodes;
             lock (_lock)
             {
                 nodes = Items.WalkChildren().Where(e => e.Value is Bookmark).ToList();
             }
-            var unlinked = new List<TreeListNode<IBookmarkEntry>>();
+
+            var progressContext = new ProgressContext("", 0.0, true);
+
+            int count = 0;
+            int unlinkedCount = 0;
             foreach (var node in nodes)
             {
+                count++;
+
                 var bookmark = (Bookmark)node.Value;
+
+                progressContext.Message = node.Name;
+                progressContext.ProgressValue = (double)count / nodes.Count;
+                progress?.Report(progressContext);
+
                 if (!await ArchiveEntryUtility.ExistsAsync(bookmark.Path, false, token))
                 {
-                    unlinked.Add(node);
+                    var resolved = FileResolver.Current.ResolveArchivePath(bookmark.Path);
+                    if (resolved != null)
+                    {
+                        bookmark.Path = resolved.Path;
+                    }
+                    else
+                    {
+                        bookmark.IsUnlinked = true;
+                        unlinkedCount++;
+                    }
                 }
             }
 
-            // 削除実行
-            if (unlinked.Count > 0)
-            {
-                lock (_lock)
-                {
-                    foreach (var node in unlinked)
-                    {
-                        var bookmark = (Bookmark)node.Value;
-                        Debug.WriteLine($"BookmarkRemove: {bookmark.Path}");
-                        node.RemoveSelf();
-                    }
+            BookmarkChanged?.Invoke(this, new BookmarkCollectionChangedEventArgs(EntryCollectionChangedAction.Replace));
 
-                    BookmarkChanged?.Invoke(this, new BookmarkCollectionChangedEventArgs(EntryCollectionChangedAction.Replace));
-                }
+            return unlinkedCount;
+        }
+
+        /// <summary>
+        /// Unlinked フラグのたったブックマークを収集
+        /// </summary>
+        /// <returns></returns>
+        public List<TreeListNode<IBookmarkEntry>> CollectUnlinked()
+        {
+            lock (_lock)
+            {
+                return  Items.WalkChildren().Where(e => e.Value is Bookmark bookmark && bookmark.IsUnlinked).ToList();
             }
         }
 
+        /// <summary>
+        /// 新しいフォルダーを追加
+        /// </summary>
         public TreeListNode<IBookmarkEntry>? AddNewFolder(TreeListNode<IBookmarkEntry> target, string? name)
         {
             if (target == Items || target.Value is BookmarkFolder)
@@ -614,6 +644,18 @@ namespace NeeView
                 var nodes = BookmarkNodeConverter.ConvertToTreeListNode(memento.Nodes) ?? CreateEmptyTree();
                 this.Load(nodes, memento.Books);
             }
+
+            // 互換用 : FileResolver 登録
+            if (memento.Books is not null && memento.Format?.CompareTo(new FormatVersion(BookmarkCollection.Memento.FormatName, VersionNumber.Ver45_Alpha4)) <= 0)
+            {
+                var files = memento.Books.Select(e => e.Path).ToList();
+                ProcessJobEngine.Current.AddJob("Processing bookmarks",
+                    () =>
+                    {
+                        FileResolver.Current.AddRangeArchivePath(files);
+                        Validated?.Invoke(this, EventArgs.Empty);
+                    });
+            }
         }
 
         #endregion
@@ -634,6 +676,22 @@ namespace NeeView
         public List<BookmarkNode>? Children { get; set; }
 
         public bool IsFolder => Children != null;
+
+        public IEnumerable<BookmarkNode> Walk()
+        {
+            yield return this;
+
+            if (Children != null)
+            {
+                foreach (var child in Children)
+                {
+                    foreach (var subChild in child.Walk())
+                    {
+                        yield return subChild;
+                    }
+                }
+            }
+        }
     }
 
     public static class BookmarkNodeConverter

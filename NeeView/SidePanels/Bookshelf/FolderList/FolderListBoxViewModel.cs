@@ -5,9 +5,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
 
 namespace NeeView
 {
@@ -63,6 +60,8 @@ namespace NeeView
         public Size ThumbnailItemSize => _thumbnailItemSize.ItemSize;
 
         public PanelListItemDetailToolTip DetailToolTip { get; }
+
+        public bool SyncBookOnRename => _model.SyncBookOnRename;
 
 
         #region RelayCommands

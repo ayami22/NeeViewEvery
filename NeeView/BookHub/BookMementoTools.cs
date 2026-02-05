@@ -146,6 +146,26 @@ namespace NeeView
             }
         }
 
+
+        /// <summary>
+        /// 名前変更追従
+        /// </summary>
+        /// <remarks>
+        /// TODO: BookMemento外の設定も変更するので、別の場所に定義したい
+        /// </remarks>
+        /// <param name="src"></param>
+        /// <param name="dst"></param>
+        public static void RenameRecursive(string src, string dst)
+        {
+            if (src == dst) return;
+
+            FileResolver.Current.AddIfTargetExists(dst, src);
+
+            BookMementoCollection.Current.RenameRecursive(src, dst);
+            QuickAccessCollection.Current.RenameRecursive(src, dst);
+            FolderConfigTools.RenameRecursive(src, dst);
+            PlaylistHub.Current.RenameItemPathRecursive(src, dst);
+        }
     }
 }
 

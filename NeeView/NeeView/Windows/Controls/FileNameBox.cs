@@ -1,20 +1,9 @@
 ﻿using Microsoft.Win32;
-using NeeLaboratory.Generators;
 using NeeView.Properties;
-using SharpVectors.Runtime;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Interop;
 using System.Windows.Media;
 
 namespace NeeView.Windows.Controls
@@ -274,7 +263,7 @@ namespace NeeView.Windows.Controls
 
         private void PathTextBox_Drop(object sender, DragEventArgs e)
         {
-            if (e.Data.GetFileDrop() is not string[] dropFiles) return;
+            if (e.Data.GetNormalizedFileDrop() is not string[] dropFiles) return;
             if (dropFiles.Length == 0) return;
 
             if (FileDialogType == FileDialogType.Directory)

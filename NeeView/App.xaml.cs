@@ -4,14 +4,9 @@ using NeeView.Properties;
 using NeeView.Text.SimpleHtmlBuilder;
 using NeeView.Windows;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -28,16 +23,12 @@ namespace NeeView
         public static new App Current => _current ?? throw new InvalidOperationException("_current must not be null");
 
 
-        // Fields
-
         private bool _isSplashScreenVisible;
         private bool _isTerminated;
         private readonly int _tickBase = System.Environment.TickCount;
         private CommandLineOption? _option;
         private MultiBootService? _multiBootService;
 
-
-        // Properties
 
         // オプション設定
         public CommandLineOption Option => _option ?? throw new InvalidOperationException("_option must not be null");
@@ -54,12 +45,10 @@ namespace NeeView
         // MainWindowはLoad完了している？
         public bool IsMainWindowLoaded { get; set; }
 
-
         /// <summary>
         /// アプリの起動時間(ms)取得
         /// </summary>
         public int TickCount => System.Environment.TickCount - _tickBase;
-
 
 
         /// <summary>
@@ -376,11 +365,7 @@ namespace NeeView
                 using var span = DebugSpan();
                 var resourceName = "Resources/SplashScreen.png";
                 var splashScreen = new SplashScreen(resourceName);
-#if DEBUG
-                splashScreen.Show(true);
-#else
                 splashScreen.Show(true, true);
-#endif
             }
         }
 
@@ -452,6 +437,9 @@ namespace NeeView
 
                     // キャッシュDBを閉じる
                     ThumbnailCache.Current.Dispose();
+
+                    // DBを閉じる
+                    Database.DisposeIfExists();
 
                     // テンポラリファイル破棄
                     Temporary.Current.RemoveTempFolder();

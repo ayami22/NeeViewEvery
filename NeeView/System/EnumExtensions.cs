@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace NeeView
 {
@@ -44,7 +43,7 @@ namespace NeeView
                 return result ?? throw new InvalidOperationException();
             }
             else
-            { 
+            {
                 return Enum.GetValues(type).GetValue(0) ?? throw new InvalidOperationException();
             }
         }
@@ -73,6 +72,54 @@ namespace NeeView
         {
             return Enum.TryParse(s, out TEnum result) ? result : Enum.GetValues<TEnum>()[0];
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TEnum SetFlag<TEnum>(this TEnum value, TEnum flag)
+            where TEnum : struct, Enum
+        {
+            ulong v = Convert.ToUInt64(value);
+            ulong f = Convert.ToUInt64(flag);
+            return (TEnum)Enum.ToObject(typeof(TEnum), v | f);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TEnum ClearFlag<TEnum>(this TEnum value, TEnum flag)
+            where TEnum : struct, Enum
+        {
+            ulong v = Convert.ToUInt64(value);
+            ulong f = Convert.ToUInt64(flag);
+            return (TEnum)Enum.ToObject(typeof(TEnum), v & ~f);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasFlagFast<TEnum>(this TEnum value, TEnum flag)
+            where TEnum : struct, Enum
+        {
+            ulong v = Convert.ToUInt64(value);
+            ulong f = Convert.ToUInt64(flag);
+            return (v & f) == f;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool AnyFlagFast<TEnum>(this TEnum value, TEnum flag)
+            where TEnum : struct, Enum
+        {
+            ulong v = Convert.ToUInt64(value);
+            ulong f = Convert.ToUInt64(flag);
+            return (v & f) != 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TEnum ToggleFlag<TEnum>(this TEnum value, TEnum flag)
+            where TEnum : struct, Enum
+        {
+            ulong v = Convert.ToUInt64(value);
+            ulong f = Convert.ToUInt64(flag);
+            return (TEnum)Enum.ToObject(typeof(TEnum), v ^ f);
+        }
     }
+
+
 }
+
 

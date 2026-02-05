@@ -1,6 +1,5 @@
-﻿using System.Threading.Tasks;
-using System.Threading;
-using System.Windows.Media;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace NeeView
 {
@@ -8,7 +7,7 @@ namespace NeeView
     {
         bool IsThumbnailValid { get; }
 
-        ValueTask<ImageSource?> LoadThumbnailAsync(CancellationToken token);
+        ValueTask LoadThumbnailAsync(CancellationToken token);
     }
 
 }

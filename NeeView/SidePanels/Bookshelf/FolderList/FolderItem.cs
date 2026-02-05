@@ -1,14 +1,9 @@
 ﻿using NeeLaboratory.ComponentModel;
-using NeeLaboratory.IO;
 using NeeLaboratory.IO.Search;
 using NeeView.Collections;
 using NeeView.Properties;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,23 +26,8 @@ namespace NeeView
         Playlist = (1 << 9),
         PlaylistMember = (1 << 10),
         ReparsePoint = (1 << 11),
+        Unlinked = (1 << 12),
     }
-
-    /// <summary>
-    /// FolderItemAttribute メソッド拡張
-    /// </summary>
-    public static class FolderItemAttributeExtensions
-    {
-        /// <summary>
-        /// いずれかのフラグのONをチェック
-        /// </summary>
-        public static bool AnyFlag(this FolderItemAttribute self, FolderItemAttribute value)
-        {
-            return (self & value) != 0;
-        }
-    }
-
-
 
     /// <summary>
     /// アイコンオーバーレイ
@@ -109,10 +89,11 @@ namespace NeeView
         // 属性
         public FolderItemAttribute Attributes { get; set; }
 
-        public bool IsDirectory => (Attributes & FolderItemAttribute.Directory) == FolderItemAttribute.Directory;
-        public bool IsShortcut => (Attributes & FolderItemAttribute.Shortcut) == FolderItemAttribute.Shortcut;
-        public bool IsPlaylist => (Attributes & FolderItemAttribute.Playlist) == FolderItemAttribute.Playlist;
-        public bool IsLink => (Attributes & (FolderItemAttribute.ReparsePoint | FolderItemAttribute.Shortcut)) != FolderItemAttribute.None;
+        public bool IsDirectory => Attributes.HasFlagFast(FolderItemAttribute.Directory);
+        public bool IsShortcut => Attributes.HasFlagFast(FolderItemAttribute.Shortcut);
+        public bool IsPlaylist => Attributes.HasFlagFast(FolderItemAttribute.Playlist);
+        public bool IsLink => Attributes.AnyFlagFast(FolderItemAttribute.ReparsePoint | FolderItemAttribute.Shortcut);
+        public bool IsUnlinked => Attributes.HasFlagFast(FolderItemAttribute.Unlinked);
 
         // 種類。ソート用
         public FolderItemType Type { get; set; }
@@ -313,6 +294,9 @@ namespace NeeView
         // 拡張子の非表示
         public bool IsHideExtension() => IsShortcut || IsPlaylist;
 
+        // サムネイル変更可能
+        public bool CanThumbnail() => !IsEmpty() && !IsDrive() && !IsBookmark();
+
         /// <summary>
         /// ターゲットパスと名前の設定
         /// </summary>
@@ -440,6 +424,10 @@ namespace NeeView
         {
             Interlocked.Decrement(ref _pendingCount);
             RaisePropertyChanged(nameof(PendingCount));
+        }
+
+        public virtual void ClearThumbnailCache()
+        {
         }
     }
 
@@ -572,6 +560,17 @@ namespace NeeView
             page.Thumbnail.IsCacheEnabled = true;
             page.Thumbnail.Touched += Thumbnail_Touched;
             return page;
+        }
+
+        public override void ClearThumbnailCache()
+        {
+            lock (_lock)
+            {
+                if (_disposedValue) return;
+                if (_archivePage is null) return;
+
+                _archivePage.ClearThumbnailCache();
+            }
         }
 
         private void DisposeArchivePage(Page? page)

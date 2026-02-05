@@ -1,9 +1,6 @@
 ﻿using NeeLaboratory.ComponentModel;
 using NeeView.Collections.Generic;
 using System;
-using System.ComponentModel;
-using System.Globalization;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,7 +15,6 @@ namespace NeeView
         public static BookmarkFolderList Current { get; }
 
 
-        private CancellationTokenSource? _removeUnlinkedCancellationTokenSource;
         private readonly DisposableCollection _disposables = new();
 
 
@@ -51,6 +47,9 @@ namespace NeeView
             get => Config.Current.Bookmark.IsSearchIncludeSubdirectories;
             set => Config.Current.Bookmark.IsSearchIncludeSubdirectories = value;
         }
+
+        public override bool SyncBookOnRename => false;
+
 
         public void UpdateItems()
         {
@@ -88,10 +87,7 @@ namespace NeeView
 
         public async ValueTask DeleteInvalidBookmark()
         {
-            // 直前の命令はキャンセル
-            _removeUnlinkedCancellationTokenSource?.Cancel();
-            _removeUnlinkedCancellationTokenSource = new CancellationTokenSource();
-            await BookmarkCollection.Current.RemoveUnlinkedAsync(_removeUnlinkedCancellationTokenSource.Token);
+            await BookmarkCollectionService.DeleteInvalidBookmark(CancellationToken.None);
         }
 
         public TreeListNode<IBookmarkEntry>? GetBookmarkPlace()
@@ -109,7 +105,6 @@ namespace NeeView
             {
                 if (disposing)
                 {
-                    _removeUnlinkedCancellationTokenSource?.Cancel();
                     _disposables.Dispose();
                 }
 

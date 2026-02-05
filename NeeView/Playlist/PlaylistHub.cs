@@ -26,45 +26,13 @@ namespace NeeView
         public static PlaylistHub Current { get; }
 
 
-        private List<object> _playlistCollection;
-        private Playlist _playlist;
+        private List<object> _playlistCollection = new();
+        private Playlist _playlist = Playlist.Dummy;
         private int _playlistLockCount;
-        private CancellationTokenSource? _deleteInvalidItemsCancellationToken;
         private bool _isPlaylistDirty;
 
         private PlaylistHub()
         {
-            if (SelectedItem != Config.Current.Playlist.DefaultPlaylist)
-            {
-                if (!File.Exists(SelectedItem))
-                {
-                    SelectedItem = Config.Current.Playlist.DefaultPlaylist;
-                }
-            }
-
-            UpdatePlaylistCollection();
-
-            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.PlaylistFolder),
-                PlaylistFolder_Changed);
-
-            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.CurrentPlaylist),
-                (s, e) => RaisePropertyChanged(nameof(SelectedItem)));
-
-            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.IsCurrentBookFilterEnabled),
-                (s, e) => RaisePropertyChanged(nameof(FilterMessage)));
-
-            BookOperation.Current.BookChanged +=
-                (s, e) => RaisePropertyChanged(nameof(FilterMessage));
-
-            // NOTE: 応急処置
-            //BookOperation.Current.LinkPlaylistHub(this);
-
-            this.AddPropertyChanged(nameof(SelectedItem),
-                (s, e) => SelectedItemChanged());
-
-            // initialize first playlist
-            _playlist = LoadPlaylist(this.SelectedItem);
-            AttachPlaylistEvents(_playlist);
         }
 
 
@@ -98,7 +66,9 @@ namespace NeeView
         public string SelectedItem
         {
             get
-            { return Config.Current.Playlist.CurrentPlaylist; }
+            {
+                return Config.Current.Playlist.CurrentPlaylist;
+            }
             set
             {
                 if (Config.Current.Playlist.CurrentPlaylist != value)
@@ -116,6 +86,46 @@ namespace NeeView
         public string? FilterMessage
         {
             get { return Config.Current.Playlist.IsCurrentBookFilterEnabled ? LoosePath.GetFileName(BookOperation.Current.Address) : null; }
+        }
+
+
+        /// <summary>
+        /// 初期化
+        /// </summary>
+        public void Initialize()
+        {
+            if (SelectedItem != Config.Current.Playlist.DefaultPlaylist)
+            {
+                if (!File.Exists(SelectedItem))
+                {
+                    SelectedItem = Config.Current.Playlist.DefaultPlaylist;
+                }
+            }
+
+            UpdatePlaylistCollection();
+
+            if (UserSettingTools.UserSettingFormat?.CompareTo(new FormatVersion(Environment.SolutionName, VersionNumber.Ver45_Alpha4)) <= 0)
+            {
+                AddAllPlaylistToFileResolver();
+            }
+
+            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.PlaylistFolder),
+                PlaylistFolder_Changed);
+
+            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.CurrentPlaylist),
+                (s, e) => RaisePropertyChanged(nameof(SelectedItem)));
+
+            Config.Current.Playlist.AddPropertyChanged(nameof(PlaylistConfig.IsCurrentBookFilterEnabled),
+                (s, e) => RaisePropertyChanged(nameof(FilterMessage)));
+
+            BookOperation.Current.BookChanged +=
+                (s, e) => RaisePropertyChanged(nameof(FilterMessage));
+
+            this.AddPropertyChanged(nameof(SelectedItem),
+                (s, e) => SelectedItemChanged());
+
+            SetPlaylist(LoadPlaylist(this.SelectedItem));
+            _isPlaylistDirty = false;
         }
 
 
@@ -425,11 +435,15 @@ namespace NeeView
         public void RenameItemPathRecursive(string src, string dst)
         {
             LocalDebug.WriteLine($"Begin: src={src}, dst={dst}");
-          
-            _playlist.Flush();
+
+            // 現在のプレイリストの名前変更
+            _playlist.RenamePathRecursive(src, dst);
+
+            //_playlist.Flush();
+
             UpdatePlaylistCollection();
 
-            var files = _playlistCollection.OfType<string>();
+            var files = _playlistCollection.OfType<string>().Where(e => string.Compare(e, _playlist.Path, StringComparison.OrdinalIgnoreCase) != 0);
             foreach (var file in files)
             {
                 try
@@ -451,13 +465,43 @@ namespace NeeView
             LocalDebug.WriteLine($"End");
         }
 
+
+        /// <summary>
+        /// すべてのプレイリストの項目をファイル追跡に登録
+        /// </summary>
+        /// <param name="src"></param>
+        /// <param name="dst"></param>
+        public void AddAllPlaylistToFileResolver()
+        {
+            _playlist.Flush();
+            UpdatePlaylistCollection();
+
+            var files = _playlistCollection.OfType<string>();
+            foreach (var file in files)
+            {
+                ProcessJobEngine.Current.AddJob($"Processing Playlist: {LoosePath.GetFileName(file)}",
+                    () =>
+                    {
+                        try
+                        {
+                            PlaylistSourceTools.AddToFileResolver(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            // できるだけ登録できればよいので例外はスルー
+                            Debug.WriteLine(ex);
+                        }
+                    });
+            }
+
+            LocalDebug.WriteLine($"End");
+        }
+
         #region Playlist Controls
 
         public async ValueTask DeleteInvalidItemsAsync()
         {
-            _deleteInvalidItemsCancellationToken?.Cancel();
-            _deleteInvalidItemsCancellationToken = new CancellationTokenSource();
-            await _playlist.DeleteInvalidItemsAsync(_deleteInvalidItemsCancellationToken.Token);
+            await PlaylistService.DeleteInvalidItemsAsync(_playlist, CancellationToken.None);
         }
 
         public void SortItems()

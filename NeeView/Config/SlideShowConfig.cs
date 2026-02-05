@@ -10,6 +10,7 @@ namespace NeeView
         private bool _isCancelSlideByMouseMove = true;
         private bool _isSlideShowByLoop = true;
         private bool _isTimerVisible;
+        private bool _isPrioritizeTime;
 
         /// <summary>
         /// スライドショーの表示間隔(秒)
@@ -38,7 +39,7 @@ namespace NeeView
         public bool IsSlideShowByLoop
         {
             get { return _isSlideShowByLoop; }
-            set { SetProperty(ref _isSlideShowByLoop ,value); } 
+            set { SetProperty(ref _isSlideShowByLoop, value); }
         }
 
         /// <summary>
@@ -51,5 +52,14 @@ namespace NeeView
             set { SetProperty(ref _isTimerVisible, value); }
         }
 
+        /// <summary>
+        /// 時間を優先
+        /// </summary>
+        [PropertyMember]
+        public bool IsPrioritizeTime
+        {
+            get { return _isPrioritizeTime; }
+            set { SetProperty(ref _isPrioritizeTime, value); }
+        }
     }
 }

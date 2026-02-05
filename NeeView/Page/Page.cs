@@ -1,4 +1,6 @@
-﻿using System;
+﻿using NeeLaboratory.Generators;
+using NeeLaboratory.IO.Search;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -7,8 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
-using NeeLaboratory.Generators;
-using NeeLaboratory.IO.Search;
 
 namespace NeeView
 {
@@ -204,22 +204,28 @@ namespace NeeView
         public bool IsThumbnailValid => _thumbnailSource.Thumbnail.IsValid;
 
         /// <summary>
+        /// サムネイルキャッシュ削除
+        /// </summary>
+        public void ClearThumbnailCache()
+        {
+            _thumbnailSource.ClearCache();
+        }
+
+        /// <summary>
         /// サムネイル読み込み
         /// </summary>
-        public async ValueTask<ImageSource?> LoadThumbnailAsync(CancellationToken token)
+        public async ValueTask LoadThumbnailAsync(CancellationToken token)
         {
-            if (_disposedValue) return null;
+            if (_disposedValue) return;
 
             try
             {
                 token.ThrowIfCancellationRequested();
                 await _thumbnailSource.LoadAsync(token);
-                return this.Thumbnail?.CreateImageSource();
             }
             catch
             {
                 // nop.
-                return null;
             }
         }
 
@@ -418,9 +424,7 @@ namespace NeeView
 
                 // 名前変更をブックマーク等に反映
                 var newPath = EntryFullName;
-                BookMementoCollection.Current.RenameRecursive(oldPath, newPath);
-                QuickAccessCollection.Current.RenameRecursive(oldPath, newPath);
-                PlaylistHub.Current.RenameItemPathRecursive(oldPath, newPath);
+                BookMementoTools.RenameRecursive(oldPath, newPath);
             }
             return isSuccess;
         }

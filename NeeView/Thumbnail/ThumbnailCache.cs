@@ -1,13 +1,7 @@
-﻿using NeeView.Data;
-using NeeView.Threading;
+﻿using NeeView.Threading;
 using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,25 +12,21 @@ namespace NeeView
     /// </summary>
     public class ThumbnailCache : IDisposable
     {
-        static ThumbnailCache() => Current = new ThumbnailCache();
-        public static ThumbnailCache Current { get; }
+        private static readonly Lazy<ThumbnailCache> _current = new();
+        public static ThumbnailCache Current => _current.Value;
 
 
-        public static string ThumbnailCacheFileName => "Cache.db";
-        public static string DefaultThumbnailCacheFilePath => Path.Combine(Environment.LocalApplicationDataPath, ThumbnailCacheFileName);
-
-
-        private ThumbnailCacheConnection? _connection;
-        private readonly System.Threading.Lock _lock = new();
+        private ThumbnailCacheDatabase? _thumbnailCacheTable;
+        private readonly Lock _lock = new();
         private Dictionary<string, ThumbnailCacheItem> _saveQueue;
         private Dictionary<string, ThumbnailCacheHeader> _updateQueue;
         private readonly DelayAction _delaySaveQueue;
-        private readonly System.Threading.Lock _lockSaveQueue = new();
+        private readonly Lock _lockSaveQueue = new();
         private bool _isEnabled = true;
 
 
 
-        private ThumbnailCache()
+        public ThumbnailCache()
         {
             _saveQueue = new Dictionary<string, ThumbnailCacheItem>();
             _updateQueue = new Dictionary<string, ThumbnailCacheHeader>();
@@ -46,16 +36,39 @@ namespace NeeView
         }
 
 
-
-        /// <summary>
-        /// キャッシュDBのパス
-        /// </summary>
-        public static string DatabasePath => Config.Current.Thumbnail.ThumbnailCacheFilePath ?? DefaultThumbnailCacheFilePath;
-
         /// <summary>
         /// キャッシュ有効フラグ
         /// </summary>
         private bool IsEnabled => Config.Current.Thumbnail.IsCacheEnabled && _isEnabled;
+
+        /// <summary>
+        /// サムネイルキャッシュテーブル
+        /// </summary>
+        private ThumbnailCacheDatabase? ThumbnailCacheTable
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (_disposedValue) return null;
+                    if (!IsEnabled) return null;
+                    if (_thumbnailCacheTable != null) return _thumbnailCacheTable;
+
+                    try
+                    {
+                        _thumbnailCacheTable = new ThumbnailCacheDatabase(Database.Current);
+                    }
+                    catch (Exception ex)
+                    {
+                        ToastService.Current.Show(new Toast($"Cannot open thumbnail database.\n{ex.Message}"));
+                        _isEnabled = false;
+                        return null;
+                    }
+
+                    return _thumbnailCacheTable;
+                }
+            }
+        }
 
 
         /// <summary>
@@ -67,86 +80,17 @@ namespace NeeView
         }
 
         /// <summary>
-        /// DBファイルサイズを取得
-        /// </summary>
-        public static long GetCacheDatabaseSize()
-        {
-            if (DatabasePath == null) throw new InvalidOperationException();
-
-            var fileInfo = new FileInfo(DatabasePath);
-            if (fileInfo.Exists)
-            {
-                return fileInfo.Length;
-            }
-            else
-            {
-                return 0L;
-            }
-        }
-
-        /// <summary>
-        /// DBを開く
-        /// </summary>
-        /// <param name="filename"></param>
-        internal ThumbnailCacheConnection? Open()
-        {
-            lock (_lock)
-            {
-                if (_disposedValue) return null;
-                if (!IsEnabled) return null;
-
-                if (_connection != null) return _connection;
-
-                try
-                {
-                    _connection = new ThumbnailCacheConnection(DatabasePath);
-                }
-                catch (ThumbnailCacheFormatException)
-                {
-                    Remove();
-                    try
-                    {
-                        _connection = new ThumbnailCacheConnection(DatabasePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        ToastService.Current.Show(new Toast($"Cannot open thumbnail database.\n{ex.Message}"));
-                        _isEnabled = false;
-                        return null;
-                    }
-                }
-
-                return _connection;
-            }
-        }
-
-        /// <summary>
-        /// DBを閉じる
-        /// </summary>
-        internal void Close()
-        {
-            lock (_lock)
-            {
-                if (_connection != null)
-                {
-                    _connection.Dispose();
-                    _connection = null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// DB削除
+        /// すべてのサムネイルを削除 
         /// </summary>
         internal void Remove()
         {
-            Close();
+            if (_disposedValue) return;
+            if (!IsEnabled) return;
 
-            var fileInfo = new FileInfo(DatabasePath);
-            if (fileInfo.Exists)
-            {
-                fileInfo.Delete();
-            }
+            ThumbnailCacheTable?.DeleteAll();
+
+            // とてもおもい
+            //Database.Current.Vacuum();
         }
 
         /// <summary>
@@ -157,7 +101,7 @@ namespace NeeView
             if (_disposedValue) return;
             if (!IsEnabled) return;
 
-            Open()?.Vacuum();
+            Database.Current.Vacuum();
         }
 
         /// <summary>
@@ -169,7 +113,7 @@ namespace NeeView
             if (_disposedValue) return;
             if (!IsEnabled) return;
 
-            Open()?.Delete(limitTime);
+            ThumbnailCacheTable?.Delete(limitTime);
         }
 
         /// <summary>
@@ -182,9 +126,8 @@ namespace NeeView
             if (_disposedValue) return;
             if (!IsEnabled) return;
 
-            Open()?.Save(header, data);
+            ThumbnailCacheTable?.Save(header, data);
         }
-
 
         /// <summary>
         /// サムネイルの読込
@@ -197,11 +140,11 @@ namespace NeeView
             if (!IsEnabled) return null;
             if (!header.IsValid()) return null;
 
-            var connection = Open();
-            var record = connection != null ? await connection.LoadAsync(header, token) : null;
+            var thumbnailCache = ThumbnailCacheTable;
+            var record = thumbnailCache != null ? await thumbnailCache.LoadAsync(header, token) : null;
             if (record != null)
             {
-                // 1日以上古い場合は更新する
+                // 1日以上古い場合はキャッシュのアクセス日時を更新する
                 if ((header.AccessTime - record.DateTime).TotalDays > 1.0)
                 {
                     EntryUpdateQueue(header);
@@ -275,7 +218,7 @@ namespace NeeView
 
             Debug.WriteLine($"ThumbnailCache.Save: {saveQueue.Count},{updateQueue.Count} ..");
 
-            Open()?.SaveQueue(saveQueue, updateQueue);
+            ThumbnailCacheTable?.SaveQueue(saveQueue, updateQueue);
         }
 
         /// <summary>
@@ -308,8 +251,7 @@ namespace NeeView
 
                     lock (_lock)
                     {
-                        _connection?.Dispose();
-                        _connection = null;
+                        _thumbnailCacheTable = null;
                     }
                 }
 

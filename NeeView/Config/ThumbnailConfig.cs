@@ -38,8 +38,8 @@ namespace NeeView
         [PropertyPath(FileDialogType = FileDialogType.SaveFile, Filter = "DB|*.db")]
         public string ThumbnailCacheFilePath
         {
-            get { return _thumbnailCacheFilePath ?? ThumbnailCache.DefaultThumbnailCacheFilePath; }
-            set { SetProperty(ref _thumbnailCacheFilePath, string.IsNullOrWhiteSpace(value) || value.Trim() == ThumbnailCache.DefaultThumbnailCacheFilePath ? null : value.Trim()); }
+            get { return _thumbnailCacheFilePath ?? Database.DefaultThumbnailCacheFilePath; }
+            set { SetProperty(ref _thumbnailCacheFilePath, string.IsNullOrWhiteSpace(value) || value.Trim() == Database.DefaultThumbnailCacheFilePath ? null : value.Trim()); }
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace NeeView
         /// <summary>
         /// 画像サイズ
         /// </summary>
-        [PropertyRange(64, 512, TickFrequency = 8, IsEditable = true, Format="{0} × {0}")]
+        [PropertyRange(64, 512, TickFrequency = 8, IsEditable = true, Format = "{0} × {0}")]
         public int ImageWidth
         {
             get { return _imageWidth; }
@@ -104,8 +104,6 @@ namespace NeeView
             set { SetProperty(ref _isVideoThumbnailEnabled, value); }
         }
 #endif
-
-
 
 
         #region Obsolete

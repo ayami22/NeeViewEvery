@@ -1,15 +1,12 @@
-﻿using NeeView.Collections;
+﻿using NeeLaboratory.Linq;
 using NeeView.Collections.Generic;
-using NeeView.IO;
-using NeeLaboratory.Linq;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Data;
-using System.Collections.Generic;
 
 namespace NeeView
 {
@@ -177,7 +174,19 @@ namespace NeeView
 
                 case EntryCollectionChangedAction.Replace:
                 case EntryCollectionChangedAction.Reset:
-                    // nop. (work at FolderList.)
+
+                    // update attributes
+                    foreach (var item in Items.ToList())
+                    {
+                        if (item is BookmarkFolderItem folderItem && folderItem.Bookmark.IsUnlinked)
+                        {
+                            item.Attributes.SetFlag(FolderItemAttribute.Unlinked);
+                        }
+                        else
+                        {
+                            item.Attributes.ClearFlag(FolderItemAttribute.Unlinked);
+                        }
+                    }
                     break;
             }
         }
@@ -252,7 +261,7 @@ namespace NeeView
                 Place = Place,
                 Name = bookmark.Name,
                 TargetPath = new QueryPath(bookmark.Path),
-                Attributes = FolderItemAttribute.Bookmark,
+                Attributes = FolderItemAttribute.Bookmark | (bookmark.IsUnlinked ? FolderItemAttribute.Unlinked : FolderItemAttribute.None),
                 EntryTime = bookmark.EntryTime,
                 IsReady = true
             };
@@ -352,7 +361,7 @@ namespace NeeView
     }
 
 
-    public class BookmarkFolderFolderItem : ConstFolderItem 
+    public class BookmarkFolderFolderItem : ConstFolderItem
     {
         private readonly BookmarkFolderItemRenameModule _rename;
 

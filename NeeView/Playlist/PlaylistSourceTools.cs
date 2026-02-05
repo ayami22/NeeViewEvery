@@ -1,4 +1,7 @@
-﻿using NeeLaboratory.IO;
+﻿//#define LOCAL_DEBUG
+
+using NeeLaboratory.Generators;
+using NeeLaboratory.IO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +13,11 @@ using System.Threading;
 
 namespace NeeView
 {
-    public static class PlaylistSourceTools
+    /// <summary>
+    /// PlaylistSource のファイル操作
+    /// </summary>
+    [LocalDebug]
+    public static partial class PlaylistSourceTools
     {
         private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
@@ -45,6 +52,7 @@ namespace NeeView
             try
             {
                 Debug.WriteLine($"Save: {path}");
+                playlist.Format = PlaylistSource.FormatVersion;
                 var json = JsonSerializer.SerializeToUtf8Bytes(playlist, UserSettingTools.GetSerializerOptions());
 
                 var directory = Path.GetDirectoryName(path);
@@ -92,7 +100,7 @@ namespace NeeView
             {
                 var playlistV1 = JsonSerializer.Deserialize<PlaylistSourceV1>(json, UserSettingTools.GetSerializerOptions());
                 if (playlistV1 is null) throw new FormatException();
-                return playlistV1.ToPlaylist();
+                return playlistV1.ToPlaylist().Validate();
             }
 #pragma warning restore CS0612, CS0618 // 型またはメンバーが旧型式です
 
@@ -100,14 +108,49 @@ namespace NeeView
             {
                 var playlistSource = JsonSerializer.Deserialize<PlaylistSource>(json, UserSettingTools.GetSerializerOptions());
                 if (playlistSource is null) throw new FormatException();
-                return playlistSource;
+                return playlistSource.Validate();
             }
         }
-
 
         private class PlaylistFileHeader
         {
             public FormatVersion? Format { get; set; }
+        }
+
+        /// <summary>
+        /// プレイリストを FileResolver に登録
+        /// </summary>
+        /// <param name="path">プレイリストファイル</param>
+        public static void AddToFileResolver(string path)
+        {
+            using (ProcessLock.Lock())
+            {
+                var playlist = Load(path);
+
+                // Ver 2.0.1 より古いプレイリストのみ処理する
+                if (playlist.Format.CompareTo(new FormatVersion(PlaylistSource.FormatName, VersionNumber.Playlist2_0_1)) < 0)
+                {
+                    playlist.AddToFileResolver();
+                    playlist.Save(path, true, false);
+                }
+            }
+        }
+
+        /// <summary>
+        /// プレイリスト項目のパスの復元と読み込み
+        /// </summary>
+        /// <param name="path"></param>
+        public static PlaylistSource LoadFileResolved(string path)
+        {
+            using (ProcessLock.Lock())
+            {
+                var playlist = Load(path);
+                if (playlist.ResolveFilePath())
+                {
+                    playlist.Save(path, true, false);
+                }
+                return playlist;
+            }
         }
     }
 

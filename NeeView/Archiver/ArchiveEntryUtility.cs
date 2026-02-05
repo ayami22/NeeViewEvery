@@ -123,12 +123,17 @@ namespace NeeView
         /// </summary>
         /// <param name="source">対象のエントリ</param>
         /// <param name="depth">検索範囲</param>
-        public static async ValueTask<ArchiveEntry?> CreateFirstImageArchiveEntryAsync(ArchiveEntry source, int depth, bool decrypt, CancellationToken token)
+        public static async ValueTask<ArchiveEntry?> CreateFirstImageArchiveEntryAsync(ArchiveEntry source, string fileName, int depth, bool decrypt, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
 
             try
             {
+                if (ArchiveManager.Current.GetSupportedType(source.SystemPath) == ArchiveType.MediaArchive)
+                {
+                    return source;
+                }
+
                 List<ArchiveEntry> entries;
                 if (!source.IsFileSystem && source.IsDirectory)
                 {
@@ -147,6 +152,17 @@ namespace NeeView
                 // TODO: 原因の調査
                 entries = EntrySort.SortEntries(entries, PageSortMode.FileName).ToList();
 
+                // 指定ファイル名を取得
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    var thumb = entries.FirstOrDefault(e => string.Compare(e.EntryLastName, fileName, StringComparison.OrdinalIgnoreCase) == 0);
+                    if (thumb != null)
+                    {
+                        thumb.Attributes |= ArchiveEntryAttributes.SpecifiedBookThumbnail;
+                        return thumb;
+                    }
+                }
+
                 // メディアを除外した最初の画像ページを取得
                 var select = entries.FirstOrDefault(e => e.IsImage(false));
                 if (select != null)
@@ -159,7 +175,7 @@ namespace NeeView
                     // NOTE: 検索サブディレクトリ数も depth で制限
                     foreach (var entry in entries.Where(e => e.IsArchive()).Take(depth))
                     {
-                        select = await CreateFirstImageArchiveEntryAsync(entry, depth - 1, decrypt, token);
+                        select = await CreateFirstImageArchiveEntryAsync(entry, fileName, depth - 1, decrypt, token);
                         if (select != null)
                         {
                             return select;
@@ -249,7 +265,6 @@ namespace NeeView
             return null;
         }
 
-
         /// <summary>
         /// エントリ群の実体化
         /// </summary>
@@ -271,6 +286,31 @@ namespace NeeView
             return paths.Distinct().ToList();
         }
 
-    }
+        /// <summary>
+        /// ページ削除用エントリの種類を取得
+        /// </summary>
+        public static DeleteEntryType GetDeleteEntryType(IEnumerable<ArchiveEntry> entries)
+        {
+            return entries.Select(e => GetDeleteEntryType(e)).Aggregate((flags, next) => flags | next);
+        }
 
+        /// <summary>
+        /// ページ削除用エントリの種類を取得
+        /// </summary>
+        public static DeleteEntryType GetDeleteEntryType(ArchiveEntry entry)
+        {
+            if (entry is PlaylistArchiveEntry)
+            {
+                return DeleteEntryType.PlaylistEntry;
+            }
+            else if (entry.IsFileSystem)
+            {
+                return DeleteEntryType.File;
+            }
+            else
+            {
+                return DeleteEntryType.ArchiveEntry;
+            }
+        }
+    }
 }

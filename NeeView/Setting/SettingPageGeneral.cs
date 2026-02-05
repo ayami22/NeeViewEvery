@@ -6,10 +6,6 @@ using NeeView.Windows;
 using NeeView.Windows.Property;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 
@@ -40,7 +36,11 @@ namespace NeeView.Setting
             this.Items = new List<SettingItem>();
 
             var section = new SettingItemSection(TextResources.GetString("SettingPage.General"));
+#if DEBUG
+            var cultureMap = TextResources.LanguageResource.Cultures.ToKeyValuePairList(e => e.Name, e => $"{e.Name}, {e.NativeName}");
+#else
             var cultureMap = TextResources.LanguageResource.Cultures.ToKeyValuePairList(e => e.Name, e => e.NativeName);
+#endif
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.System, nameof(SystemConfig.Language), new PropertyMemberElementOptions() { StringMap = cultureMap }))
             {
                 Icon = new FontIcon("\uE774"),
@@ -149,6 +149,10 @@ namespace NeeView.Setting
             {
                 IsStretch = true,
                 IsEnabled = new IsEnabledPropertyValue(Config.Current.Bookmark, nameof(BookmarkConfig.IsSaveBookmark))
+            });
+            section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Bookshelf, nameof(BookshelfConfig.FolderConfigFilePath)))
+            {
+                IsStretch = true,
             });
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Playlist, nameof(PlaylistConfig.PlaylistFolder)))
             {

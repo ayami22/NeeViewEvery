@@ -1,7 +1,6 @@
 ﻿using NeeLaboratory.Generators;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -162,6 +161,11 @@ namespace NeeView
         /// アーカイバ識別子
         /// </summary>
         public ArchiverIdentifier ArchiverIdentifier => new ArchiverIdentifier(ArchiveManager.GetArchiveType(this), GetPluginName());
+
+        /// <summary>
+        /// アーカイブはファイルシステムに存在？
+        /// </summary>
+        public bool IsFileSystem => Source is null || Source.IsFileSystem;
 
 
         public virtual string? GetPluginName()

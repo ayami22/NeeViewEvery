@@ -82,7 +82,7 @@ namespace NeeView
         /// </summary>
         public static bool IsFolderRecursive(QueryPath query)
         {
-            var memento = BookHistoryCollection.Current.GetFolderMemento(query.SimplePath);
+            var memento = FolderConfigCollection.Current.GetFolderParameter(query);
             return memento.IsFolderRecursive;
         }
 
@@ -132,9 +132,7 @@ namespace NeeView
             // 履歴を新しい名前に変更
             if (oldPath != null)
             {
-                BookMementoCollection.Current.RenameRecursive(oldPath, path);
-                QuickAccessCollection.Current.RenameRecursive(oldPath, path);
-                PlaylistHub.Current.RenameItemPathRecursive(oldPath, path);
+                BookMementoTools.RenameRecursive(oldPath, path);
             }
 
             // 本を開く

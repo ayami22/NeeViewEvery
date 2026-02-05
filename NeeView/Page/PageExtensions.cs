@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using System.Threading;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Media.Effects;
 
@@ -14,7 +14,11 @@ namespace NeeView
         public static async ValueTask<Image> CreatePageVisualAsync(this Page page)
         {
             // NOTE: 確実に非同期で処理させるため
-            var imageSource = await Task.Run(async () => await page.LoadThumbnailAsync(CancellationToken.None));
+            var imageSource = await Task.Run(async () =>
+            {
+                await page.LoadThumbnailAsync(CancellationToken.None);
+                return page.Thumbnail.CreateImageSource();
+            });
 
             var image = new Image();
             image.Source = imageSource;

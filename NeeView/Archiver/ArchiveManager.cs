@@ -1,14 +1,11 @@
 ﻿using NeeLaboratory.ComponentModel;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Controls;
 
 namespace NeeView
 {
@@ -98,7 +95,7 @@ namespace NeeView
         {
             get
             {
-                if (_isDirtyOrderList)
+                if (_isDirtyOrderList){
                 
                     _orderList = CreateOrderList();
                     _isDirtyOrderList = false;

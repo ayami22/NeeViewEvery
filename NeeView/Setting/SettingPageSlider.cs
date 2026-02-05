@@ -1,9 +1,8 @@
-﻿using NeeLaboratory.Windows.Input;
-using NeeView.Properties;
+﻿using NeeView.Properties;
 using NeeView.Windows.Property;
 using System;
 using System.Collections.Generic;
-using System.Windows;
+using System.Diagnostics;
 
 namespace NeeView.Setting
 {
@@ -20,10 +19,18 @@ namespace NeeView.Setting
                 new SettingPagePageTitle(),
             };
 
+            var sliderDirection = new Dictionary<Enum, string>
+            {
+                [SliderDirection.LeftToRight] = "▶ " + SliderDirection.LeftToRight.ToAliasName(),
+                [SliderDirection.RightToLeft] = "◀ " + SliderDirection.RightToLeft.ToAliasName(),
+                [SliderDirection.SyncBookReadDirection] = SliderDirection.SyncBookReadDirection.ToAliasName()
+            };
+            Debug.Assert(Enum.GetNames(typeof(SliderDirection)).Length == sliderDirection.Count);
+
             var section = new SettingItemSection(TextResources.GetString("SettingPage.Slider"));
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.Thickness))));
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.Opacity))));
-            section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.SliderDirection))));
+            section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.SliderDirection), new PropertyMemberElementOptions() { EnumMap = sliderDirection }) ));
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.SliderIndexLayout))));
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.IsVisiblePlaylistMark))));
             section.Children.Add(new SettingItemProperty(PropertyMemberElement.Create(Config.Current.Slider, nameof(SliderConfig.IsSyncPageMode))));
@@ -52,40 +59,6 @@ namespace NeeView.Setting
 
             this.Items = new List<SettingItem>() { section };
         }
-
-        #region Commands
-
-        private RelayCommand<UIElement>? _RemoveCache;
-        public RelayCommand<UIElement> RemoveCache
-        {
-            get { return _RemoveCache = _RemoveCache ?? new RelayCommand<UIElement>(RemoveCache_Executed); }
-        }
-
-        private void RemoveCache_Executed(UIElement? element)
-        {
-            try
-            {
-                ThumbnailCache.Current.Remove();
-
-                var dialog = new MessageDialog("", TextResources.GetString("CacheDeletedDialog.Title"));
-                if (element != null)
-                {
-                    dialog.Owner = Window.GetWindow(element);
-                }
-                dialog.ShowDialog();
-            }
-            catch (Exception ex)
-            {
-                var dialog = new MessageDialog(ex.Message, TextResources.GetString("CacheDeletedFailedDialog.Title"));
-                if (element != null)
-                {
-                    dialog.Owner = Window.GetWindow(element);
-                }
-                dialog.ShowDialog();
-            }
-        }
-
-        #endregion
     }
 
 
