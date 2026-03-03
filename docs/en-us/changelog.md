@@ -1,7 +1,25 @@
 # Changelog
 
-## 45.0 (Beta)
-(2026-02-??)
+## 45.2
+(2026-03-02)
+
+### Fixed
+
+- History: Fixed an issue with the update timing of the registration order for items registered in the history (#1881)
+
+
+## 45.1
+(2026-02-23)
+
+### Fixed
+
+- System: Fixed TAB key navigation (#1880)
+- Panel: Fixed an issue where wheel scrolling in thumbnail view did not function properly (#1878)
+- Setting: Fixed an issue where the “Explorer” page might not display (#1875)
+
+
+## 45.0
+(2026-02-16)
 
 #### Important changes
 
@@ -60,8 +78,10 @@ Context menu registration to Explorer is done in the settings window, just like 
 - View: Fixed a bug where resize filters were not working for some image formats (#1809)
 - View: Fixed a bug (#1821) where a white line would sometimes appear on the edge when changing from full screen to maximized window.
 - Panel: Fixed HOME/END key behavior when panel thumbnails are displayed (#1817)
+- Bookshelf: Fixed an issue where the quick list in the Home button menu might not display fully (#1869)
 - Bookmarks: Fixed a bug where renaming in the bookmark panel was sometimes not possible. Renaming in the bookmark panel no longer opens a book (#1811)
-- Page List: Fixed a bug where page list thumbnails sometimes did not load (#1816)
+- PageList: Fixed a bug where page list thumbnails sometimes did not load (#1816)
+- PageList: Fixed an issue where folders and compressed files were not distinguished (#1868)
 - History: Fixed a bug where history information was not updated when opening a book from history (#1818)
 
 
