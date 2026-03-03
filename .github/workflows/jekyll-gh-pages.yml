@@ -24,6 +24,7 @@ concurrency:
 jobs:
   # Build job
   build:
+    if: github.repository == 'neelabo/NeeView' || github.repository == 'ayami22/NeeViewEvery'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

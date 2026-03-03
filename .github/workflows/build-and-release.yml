@@ -1,0 +1,94 @@
+name: Build and Release NeeView
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Build target (All, Zip, Installer, Appx, Alpha, Beta, Dev)'
+        required: true
+        default: 'All'
+        type: choice
+        options:
+          - All
+          - Zip
+          - Installer
+          - Alpha
+          - Beta
+          - Dev
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x' # TargetFramework net10.0-windows
+
+      - name: Setup WiX Toolset
+        run: |
+          dotnet tool install --global wix
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+
+      - name: Setup NetBeauty2
+        run: |
+          dotnet tool install --global NetBeauty2
+
+      - name: Setup Pandoc
+        run: |
+          choco install pandoc -y
+
+      - name: Run Build Script
+        shell: pwsh
+        run: |
+          # Use the target from input or default to All
+          $target = "${{ github.event.inputs.target }}"
+          if (-not $target) { $target = "All" }
+          
+          # Skip signing if no certificate environment variable is set
+          # The script already has a check for $env:CersPath, so it will skip Appx build if missing.
+          
+          # Pass -continue if it's a re-run but better just start fresh on CI
+          .\MakePackage\MakePackage.ps1 -Target $target
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List Output Files
+        run: |
+          dir
+
+      - name: Upload Zip Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeeView-Zip-Packages
+          path: |
+            NeeView*.zip
+
+      - name: Upload Installer Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeeView-Installers
+          path: |
+            NeeView*.msi
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            NeeView*.zip
+            NeeView*.msi
+          draft: true # Draft release for manual review
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}

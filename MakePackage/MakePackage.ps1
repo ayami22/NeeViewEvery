@@ -28,11 +28,15 @@ Write-Host "Target: $Target"
 Write-Host "Continue: $continue"
 Write-Host "Trace: $trace"
 Write-Host
-Read-Host "Press Enter to continue"
+if (-not $env:GITHUB_ACTIONS) {
+	Read-Host "Press Enter to continue"
+}
 
 # environment
 $product = 'NeeView'
-$Win10SDK = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
+$Win10SDK = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\10.0.*\x64" | Sort-Object Name -Descending | Select-Object -First 1).FullName
+if (-not $Win10SDK) { $Win10SDK = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64" }
+if ($env:WIN10_SDK_PATH) { $Win10SDK = $env:WIN10_SDK_PATH }
 $issuesUrl = "https://github.com/neelabo/NeeView/issues"
 
 # sync current directory
