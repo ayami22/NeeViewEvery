@@ -44,7 +44,7 @@ jobs:
 
       - name: Setup NetBeauty2
         run: |
-          dotnet tool install --global NetBeauty2
+          dotnet tool install --global nulastudio.nbeauty
 
       - name: Setup Pandoc
         run: |
