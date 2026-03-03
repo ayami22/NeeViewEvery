@@ -1,9 +1,11 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     
-    <StandardDirectory Id="PerUserProgramFilesFolder">
-      <Directory Id="PFCompanyFolder" Name="NeeLaboratory">
-        <Directory Id="INSTALLFOLDER" Name="NeeView" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="PFProgramsFolder" Name="Programs">
+        <Directory Id="PFCompanyFolder" Name="NeeLaboratory">
+          <Directory Id="INSTALLFOLDER" Name="NeeView" />
+        </Directory>
       </Directory>
     </StandardDirectory>
     
