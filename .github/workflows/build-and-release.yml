@@ -39,7 +39,7 @@ jobs:
 
       - name: Setup WiX Toolset
         run: |
-          dotnet tool install --global wix
+          dotnet tool install --global wix --version 5.0.2
           wix extension add --global WixToolset.UI.wixext/5.0.2
 
       - name: Setup NetBeauty2
@@ -57,38 +57,36 @@ jobs:
           $target = "${{ github.event.inputs.target }}"
           if (-not $target) { $target = "All" }
           
-          # Skip signing if no certificate environment variable is set
-          # The script already has a check for $env:CersPath, so it will skip Appx build if missing.
-          
-          # Pass -continue if it's a re-run but better just start fresh on CI
-          .\MakePackage\MakePackage.ps1 -Target $target
+          # The script expects to be run from the MakePackage directory
+          cd MakePackage
+          .\MakePackage.ps1 -Target $target
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List Output Files
         run: |
-          dir
+          dir MakePackage
 
       - name: Upload Zip Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NeeView-Zip-Packages
           path: |
-            NeeView*.zip
+            MakePackage/NeeView*.zip
 
       - name: Upload Installer Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NeeView-Installers
           path: |
-            NeeView*.msi
+            MakePackage/NeeView*.msi
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            NeeView*.zip
-            NeeView*.msi
-          draft: true # Draft release for manual review
+            MakePackage/NeeView*.zip
+            MakePackage/NeeView*.msi
+          draft: false # Set to false for automatic release
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
