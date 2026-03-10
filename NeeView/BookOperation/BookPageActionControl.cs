@@ -225,19 +225,8 @@ namespace NeeView
 
         public async ValueTask CopyToFolderAsync(DestinationFolder parameter, MultiPagePolicy multiPagePolicy, CancellationToken token)
         {
-            try
-            {
-                var pages = CollectPages(_book, multiPagePolicy);
-                var paths = await PageUtility.CreateRealizedFilePathListAsync(pages, Config.Current.System.ArchiveCopyPolicy.LimitedRealization(), token);
-                await parameter.CopyAsync(paths, token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                new MessageDialog(ex.Message, TextResources.GetString("Bookshelf.CopyToFolderFailed")).ShowDialog();
-            }
+            var entries = CollectPages(_book, multiPagePolicy).Select(e => e.ArchiveEntry).ToList();
+            await parameter.TryCopyAsync(entries, token);
         }
 
         // NOTE: parameter は未使用
@@ -257,19 +246,9 @@ namespace NeeView
 
         public async ValueTask MoveToFolderAsync(DestinationFolder parameter, MultiPagePolicy multiPagePolicy, CancellationToken token)
         {
-            try
-            {
-                var pages = CollectPages(_book, multiPagePolicy).Where(e => e.ArchiveEntry.IsFileSystem);
-                var paths = pages.Select(e => e.GetFilePlace()).WhereNotNull().ToList();
-                await parameter.MoveAsync(paths, token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                new MessageDialog(ex.Message, TextResources.GetString("PageList.Message.MoveToFolderFailed")).ShowDialog();
-            }
+            var pages = CollectPages(_book, multiPagePolicy).Where(e => e.ArchiveEntry.IsFileSystem);
+            var paths = pages.Select(e => e.GetFilePlace()).WhereNotNull().Distinct().ToList();
+            await parameter.TryMoveAsync(paths, token);
         }
 
         public bool CanOpenApplication(IExternalApp parameter, MultiPagePolicy multiPagePolicy)
@@ -333,6 +312,10 @@ namespace NeeView
         // クリップボードに切り取り
         public async ValueTask CutToClipboardAsync(CopyFileCommandParameter parameter, CancellationToken token)
         {
+            var pages = CollectPages(_book, parameter.MultiPagePolicy);
+            await ClipboardUtility.TryCutAsync(pages, token);
+
+#if false
             try
             {
                 var pages = CollectPages(_book, parameter.MultiPagePolicy);
@@ -345,6 +328,7 @@ namespace NeeView
             {
                 new MessageDialog($"{TextResources.GetString("Word.Cause")}: {e.Message}", TextResources.GetString("CopyErrorDialog.Title")).ShowDialog();
             }
+#endif
         }
 
 
@@ -364,6 +348,10 @@ namespace NeeView
         // クリップボードにコピー
         public async ValueTask CopyToClipboardAsync(CopyFileCommandParameter parameter, CancellationToken token)
         {
+            var pages = CollectPages(_book, parameter.MultiPagePolicy);
+            await ClipboardUtility.TryCopyAsync(pages, MainViewManager.Current.GetWindowContainingMainView(), token);
+
+#if false
             try
             {
                 var pages = CollectPages(_book, parameter.MultiPagePolicy);
@@ -376,6 +364,7 @@ namespace NeeView
             {
                 new MessageDialog($"{TextResources.GetString("Word.Cause")}: {e.Message}", TextResources.GetString("CopyErrorDialog.Title")).ShowDialog();
             }
+#endif
         }
 
         /// <summary>
@@ -425,7 +414,7 @@ namespace NeeView
             }
         }
 
-        #endregion ページ出力
+#endregion ページ出力
 
     }
 }

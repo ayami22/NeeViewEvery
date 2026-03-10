@@ -78,6 +78,7 @@ namespace NeeView
             typeof(ToggleStretchModeCommandParameter),
             typeof(StretchModeCommandParameter),
             typeof(ViewScrollCommandParameter),
+            typeof(ViewPresetScrollCommandParameter),
             typeof(ViewScaleCommandParameter),
             typeof(ViewRotateCommandParameter),
             typeof(MovePlaylistItemInBookCommandParameter),
@@ -87,6 +88,7 @@ namespace NeeView
             typeof(ExportImageCommandParameter),
             typeof(OpenExternalAppCommandParameter),
             typeof(OpenExternalAppAsCommandParameter),
+            typeof(OpenBookExternalAppAsCommandParameter),
             typeof(CopyFileCommandParameter),
             typeof(ViewScrollNTypeCommandParameter),
             typeof(ScriptCommandParameter),
@@ -94,6 +96,8 @@ namespace NeeView
             typeof(ExportBackupCommandParameter),
             typeof(CopyToFolderAsCommandParameter),
             typeof(MoveToFolderAsCommandParameter),
+            typeof(CopyBookToFolderAsCommandParameter),
+            typeof(MoveBookToFolderAsCommandParameter),
             typeof(ToggleBookmarkCommandParameter),
         };
 

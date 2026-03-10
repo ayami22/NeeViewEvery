@@ -134,6 +134,11 @@ namespace NeeView
         public virtual string EntryFullName => LoosePath.Combine(Archive.SystemPath, EntryName);
 
         /// <summary>
+        /// エントリの拡張子
+        /// </summary>
+        public string Extension => LoosePath.GetExtension(EntryName);
+
+        /// <summary>
         /// ルートアーカイバー
         /// </summary>
         /// a.zip
@@ -554,7 +559,8 @@ namespace NeeView
         /// <exception cref="NotSupportedException"></exception>
         public async ValueTask<string?> RealizeAsync(CancellationToken token)
         {
-            return await RealizeAsync(ArchivePolicy.SendExtractFile, token);
+            var archivePolicy = Config.Current.System.ArchiveCopyPolicy.LimitedRealization();
+            return await RealizeAsync(archivePolicy, token);
         }
 
         /// <summary>
@@ -634,7 +640,7 @@ namespace NeeView
         /// <summary>
         /// 個別指定ブックサムネイル用エントリ
         /// </summary>
-        IndivisualBookThumbnail = (1 << 2),
+        IndividualBookThumbnail = (1 << 2),
     }
 }
 

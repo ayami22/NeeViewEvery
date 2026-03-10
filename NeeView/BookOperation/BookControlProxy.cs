@@ -18,6 +18,8 @@ namespace NeeView
 
         public string? Path => _source?.Path;
 
+        public int PendingCount => _source?.PendingCount ?? 0;
+
 
         protected virtual void Dispose(bool disposing)
         {
@@ -72,6 +74,77 @@ namespace NeeView
         {
             //Debug.WriteLine($"{e.PropertyName}: IsBusy={_source?.IsBusy}");
             RaisePropertyChanged(e.PropertyName);
+        }
+
+
+        public bool CanOpenBookPlace()
+        {
+            return _source?.CanOpenBookPlace() ?? false;
+        }
+
+        public void OpenBookPlace()
+        {
+            _source?.OpenBookPlace();
+        }
+
+        public bool CanOpenExternalApp(IExternalApp parameter)
+        {
+            return _source?.CanOpenExternalApp(parameter) ?? false;
+        }
+
+        public void OpenExternalApp(IExternalApp parameter)
+        {
+            _source?.OpenExternalApp(parameter);
+        }
+
+        public bool CanCopyBookToClipboard()
+        {
+            return _source?.CanCopyBookToClipboard() ?? false;
+        }
+
+        public void CopyBookToClipboard()
+        {
+            _source?.CopyBookToClipboard();
+        }
+
+        public bool CanCutBookToClipboard()
+        {
+            return _source?.CanCutBookToClipboard() ?? false;
+        }
+
+        public void CutBookToClipboard()
+        {
+            _source?.CutBookToClipboard();
+        }
+
+        public bool CanCopyBookToFolder(DestinationFolder parameter)
+        {
+            return _source?.CanCopyBookToFolder(parameter) ?? false;
+        }
+
+        public void CopyBookToFolder(DestinationFolder parameter)
+        {
+            _source?.CopyBookToFolder(parameter);
+        }
+
+        public bool CanMoveBookToFolder(DestinationFolder parameter)
+        {
+            return _source?.CanMoveBookToFolder(parameter) ?? false;
+        }
+
+        public void MoveBookToFolder(DestinationFolder parameter)
+        {
+            _source?.MoveBookToFolder(parameter);
+        }
+
+        public bool CanRenameBook()
+        {
+            return _source?.CanRenameBook() ?? false;
+        }
+
+        public void RenameBook()
+        {
+            _source?.RenameBook();
         }
 
         public bool CanDeleteBook()

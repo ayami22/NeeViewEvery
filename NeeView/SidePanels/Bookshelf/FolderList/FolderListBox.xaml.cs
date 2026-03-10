@@ -29,6 +29,7 @@ namespace NeeView
         private ListBoxThumbnailLoader? _thumbnailLoader;
         private PageThumbnailJobClient? _jobClient;
         private FolderItem? _clickItem;
+        private CancellationTokenSource? _realizeTokenSource;
 
 
         static FolderListBox()
@@ -299,7 +300,7 @@ namespace NeeView
         private void Copy_CanExecute(object? sender, CanExecuteRoutedEventArgs e)
         {
             var items = this.ListBox.SelectedItems.Cast<FolderItem>();
-            e.CanExecute = items != null && items.All(x => x.IsEditable);
+            e.CanExecute = items != null;
         }
 
         /// <summary>
@@ -307,24 +308,39 @@ namespace NeeView
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        public void Copy_Executed(object? sender, ExecutedRoutedEventArgs e)
+        public async void Copy_Executed(object? sender, ExecutedRoutedEventArgs e)
         {
             var items = this.ListBox.SelectedItems.Cast<FolderItem>();
             if (items != null && items.Any())
             {
-                CopyToClipboard(items);
+                try
+                {
+                    this.Cursor = Cursors.Wait;
+                    _realizeTokenSource?.Cancel();
+                    _realizeTokenSource = new CancellationTokenSource();
+                    await CopyToClipboard(items, _realizeTokenSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                finally
+                {
+                    this.Cursor = null;
+                }
             }
         }
 
         /// <summary>
         /// クリップボードにコピー
         /// </summary>
-        private static void CopyToClipboard(IEnumerable<FolderItem> items)
+        private static async Task CopyToClipboard(IEnumerable<FolderItem> items, CancellationToken token)
         {
             var collection = new System.Collections.Specialized.StringCollection();
             foreach (var item in items.Where(e => !e.IsEmpty()).Select(e => e.EntityPath.SimplePath).Where(e => new QueryPath(e).Scheme == QueryScheme.File))
             {
-                collection.Add(item);
+                var entry = await ArchiveEntryUtility.CreateAsync(item, ArchiveHint.None, true, token);
+                var path = await entry.RealizeAsync(token);
+                collection.Add(path);
             }
 
             if (collection.Count == 0)
@@ -348,7 +364,7 @@ namespace NeeView
         private bool CopyToFolder_CanExecute()
         {
             var items = this.ListBox.SelectedItems.Cast<FolderItem>();
-            return items != null && items.All(x => x.IsEditable);
+            return items != null; // && items.All(x => x.IsEditable);
         }
 
         public async void CopyToFolder_Execute(object? sender, ExecutedRoutedEventArgs e)
@@ -367,6 +383,7 @@ namespace NeeView
                 {
                     ////Debug.WriteLine($"CopyToFolder: to {folder.Path}");
                     await FileIO.SHCopyToFolderAsync(items.Select(x => x.TargetPath.SimplePath), folder.Path, CancellationToken.None);
+                    GC.KeepAlive(items);
                 }
             }
             catch (OperationCanceledException)
@@ -408,6 +425,7 @@ namespace NeeView
                 {
                     ////Debug.WriteLine($"MoveToFolder: to {folder.Path}");
                     await FileIO.SHMoveToFolderAsync(items.Select(x => x.TargetPath.SimplePath), folder.Path, CancellationToken.None);
+                    GC.KeepAlive(items);
                 }
             }
             catch (OperationCanceledException)
@@ -1241,7 +1259,7 @@ namespace NeeView
                     contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.OpenBook"), Command = OpenBookCommand });
                     contextMenu.Items.Add(new Separator());
                     contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Explorer"), Command = OpenExplorerCommand });
-                    contextMenu.Items.Add(ExternalAppCollectionUtility.CreateExternalAppItem(OpenExternalApp_CanExecute(), OpenExternalAppCommand, OpenExternalAppDialogCommand));
+                    contextMenu.Items.Add(ExternalAppCollectionUtility.CreateExternalAppItem(TextResources.GetString("BookshelfItem.Menu.OpenExternalApp"), OpenExternalApp_CanExecute(), OpenExternalAppCommand, OpenExternalAppDialogCommand));
                     contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Cut"), Command = CutCommand });
                     contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Copy"), Command = CopyCommand });
                     contextMenu.Items.Add(DestinationFolderCollectionUtility.CreateDestinationFolderItem(TextResources.GetString("BookshelfItem.Menu.CopyToFolder"), CopyToFolder_CanExecute(), CopyToFolderCommand, OpenDestinationFolderCommand));
@@ -1271,7 +1289,7 @@ namespace NeeView
                 contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.DeleteHistory"), Command = RemoveHistoryCommand });
                 contextMenu.Items.Add(new Separator());
                 contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Explorer"), Command = OpenExplorerCommand });
-                contextMenu.Items.Add(ExternalAppCollectionUtility.CreateExternalAppItem(OpenExternalApp_CanExecute(), OpenExternalAppCommand, OpenExternalAppDialogCommand));
+                contextMenu.Items.Add(ExternalAppCollectionUtility.CreateExternalAppItem(TextResources.GetString("OpenExternalAppAsCommand.Menu"), OpenExternalApp_CanExecute(), OpenExternalAppCommand, OpenExternalAppDialogCommand));
                 contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Cut"), Command = CutCommand });
                 contextMenu.Items.Add(new MenuItem() { Header = TextResources.GetString("BookshelfItem.Menu.Copy"), Command = CopyCommand });
                 contextMenu.Items.Add(DestinationFolderCollectionUtility.CreateDestinationFolderItem(TextResources.GetString("BookshelfItem.Menu.CopyToFolder"), CopyToFolder_CanExecute(), CopyToFolderCommand, OpenDestinationFolderCommand));

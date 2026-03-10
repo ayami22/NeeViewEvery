@@ -6,16 +6,16 @@ namespace NeeView
 {
     public class CopyToFolderAsCommand : CommandElement
     {
-        private readonly DestinationFolderParameterCommandParameterFactory _parameterFactory;
+        private readonly Lazy<CopyPageToFolderMenuFactory> _menuFactory;
 
         public CopyToFolderAsCommand()
         {
             this.Group = TextResources.GetString("CommandGroup.File");
-            this.IsShowMessage = false;
+            this.IsShowMessage = true;
 
             this.ParameterSource = new CommandParameterSource(new CopyToFolderAsCommandParameter());
 
-            _parameterFactory = new DestinationFolderParameterCommandParameterFactory(new CopyToDestinationFolderOption(this));
+            _menuFactory = new Lazy<CopyPageToFolderMenuFactory>(() => new CopyPageToFolderMenuFactory(new DestinationFolderParameterCommandParameterFactory(new CopyToDestinationFolderOption(this))));
         }
 
         public override bool CanExecute(object? sender, CommandContext e)
@@ -46,7 +46,7 @@ namespace NeeView
             }
             else
             {
-                MainViewComponent.Current.MainView.CommandMenu.OpenCopyToFolderMenu(_parameterFactory);
+                MainViewComponent.Current.MainView.CommandMenu.OpenDestinationFolderMenu(_menuFactory.Value);
             }
         }
 
@@ -56,7 +56,7 @@ namespace NeeView
             var index = parameter.Index - 1;
             if (isDefault || index < 0)
             {
-                return MainViewCopyToFolderTools.CreateCopyToFolderItem(_parameterFactory);
+                return _menuFactory.Value.CreateFolderMenu();
             }
             else
             {
